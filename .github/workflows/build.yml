@@ -70,6 +70,28 @@ jobs:
       - name: Build
         run: bash build.sh all
 
+      # ── Verify manifests contain default_locale when _locales exists ──────
+      - name: Validate packaged manifests
+        run: |
+          check_pkg() {
+            local pkg="$1"
+            local platform="$2"
+
+            echo "Validating ${pkg} (${platform})"
+
+            if unzip -l "${pkg}" | grep -q "_locales/"; then
+              if ! unzip -p "${pkg}" manifest.json | grep -q '"default_locale"[[:space:]]*:[[:space:]]*"en"'; then
+                echo "ERROR: ${pkg} contains _locales but manifest.json is missing default_locale=en"
+                exit 1
+              fi
+            fi
+
+            echo "OK: ${pkg}"
+          }
+
+          check_pkg confluencex-chrome.zip chrome
+          check_pkg confluencex-firefox.zip firefox
+
       # ── Rename zips and produce tar.gz / xpi ─────────────────────────────
       - name: Package artifacts
         env:
