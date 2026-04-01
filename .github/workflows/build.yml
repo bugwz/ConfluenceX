@@ -1,4 +1,4 @@
-name: Build & Release
+name: Build Packages
 
 on:
   push:
@@ -6,11 +6,11 @@ on:
       - main
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
-    name: Build packages and create release
+    name: Build extension packages
     runs-on: ubuntu-latest
 
     steps:
@@ -23,25 +23,23 @@ jobs:
       # ── Compute artifact name ─────────────────────────────────────────────
       #
       # Naming convention:
-      #   ConfluenceX_{version}-{distance}-g{hash}-{short-msg}_{platform}.{ext}
+      #   ConfluenceX_{version}-{distance}-g{hash}_{platform}.{ext}
       #
       # - version   : from package.json  (e.g. 0.0.0)
-      # - distance  : commits since last tag; if no tags, commits since the
-      #               very first commit (1-based, includes the current commit)
+      # - distance  : commits since previous valid tag (excludes build/* tags);
+      #               if no valid tag exists, use total commits
       # - hash      : 7-char short SHA of HEAD
-      # - short-msg : first ~40 chars of commit subject, sanitized for filenames
-      #
       - name: Compute version info
         id: ver
         run: |
           VERSION=$(node -p "require('./package.json').version")
 
-          # Distance from last tag, or from initial commit when no tags exist
-          if git describe --tags --abbrev=0 2>/dev/null; then
-            LAST_TAG=$(git describe --tags --abbrev=0)
+          # Distance from previous valid tag, excluding CI build/* tags.
+          if git describe --tags --abbrev=0 --exclude='build/*' 2>/dev/null; then
+            LAST_TAG=$(git describe --tags --abbrev=0 --exclude='build/*')
             DISTANCE=$(git rev-list "${LAST_TAG}..HEAD" --count)
           else
-            # No tags yet: distance = total commit count (1-based)
+            # No valid tags yet: distance = total commit count (1-based)
             DISTANCE=$(git rev-list HEAD --count)
           fi
 
@@ -50,21 +48,16 @@ jobs:
           # Full artifact base name (no extension, no platform suffix yet)
           ARTIFACT_BASE="ConfluenceX_${VERSION}-${DISTANCE}-g${SHORT_HASH}"
 
-          # Release tag (unique per commit)
-          RELEASE_TAG="build/${VERSION}-${DISTANCE}-g${SHORT_HASH}"
-
           echo "version=${VERSION}"           >> "$GITHUB_OUTPUT"
           echo "distance=${DISTANCE}"         >> "$GITHUB_OUTPUT"
           echo "short_hash=${SHORT_HASH}"     >> "$GITHUB_OUTPUT"
           echo "artifact_base=${ARTIFACT_BASE}" >> "$GITHUB_OUTPUT"
-          echo "release_tag=${RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
 
           echo "### Version info"
           echo "version      : ${VERSION}"
           echo "distance     : ${DISTANCE}"
           echo "short_hash   : ${SHORT_HASH}"
           echo "artifact_base: ${ARTIFACT_BASE}"
-          echo "release_tag  : ${RELEASE_TAG}"
 
       # ── Build Chrome & Firefox zips ───────────────────────────────────────
       - name: Build
@@ -136,8 +129,8 @@ jobs:
           echo "--- SHA-256 ---"
           cat checksums.txt
 
-      # ── Build release notes ───────────────────────────────────────────────
-      - name: Build release notes
+      # ── Build artifact notes ──────────────────────────────────────────────
+      - name: Build artifact notes
         env:
           BASE:      ${{ steps.ver.outputs.artifact_base }}
           VERSION:   ${{ steps.ver.outputs.version }}
@@ -149,7 +142,7 @@ jobs:
           COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
           COMMIT_DATE=$(git log -1 --pretty=format:"%ci")
 
-          cat > release_notes.md << EOF
+          cat > artifact_notes.md << EOF
           ## ${BASE}
 
           | Field | Value |
@@ -164,11 +157,11 @@ jobs:
           EOF
 
           if [ -n "${COMMIT_BODY}" ]; then
-            echo "" >> release_notes.md
-            echo "${COMMIT_BODY}" >> release_notes.md
+            echo "" >> artifact_notes.md
+            echo "${COMMIT_BODY}" >> artifact_notes.md
           fi
 
-          cat >> release_notes.md << 'EOF'
+          cat >> artifact_notes.md << 'EOF'
 
           ---
 
@@ -178,26 +171,23 @@ jobs:
           while IFS= read -r line; do
             HASH=$(echo "$line" | awk '{print $1}')
             FILE=$(echo "$line" | awk '{print $2}')
-            echo "- \`${FILE}\`  " >> release_notes.md
-            echo "  \`sha256:${HASH}\`" >> release_notes.md
+            echo "- \`${FILE}\`  " >> artifact_notes.md
+            echo "  \`sha256:${HASH}\`" >> artifact_notes.md
           done < checksums.txt
 
-          echo "--- Release notes ---"
-          cat release_notes.md
+          echo "--- Artifact notes ---"
+          cat artifact_notes.md
 
-      # ── Create GitHub Release ─────────────────────────────────────────────
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+      # ── Upload workflow artifacts (no auto tag/release) ──────────────────
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: ${{ steps.ver.outputs.release_tag }}
           name: ${{ steps.ver.outputs.artifact_base }}
-          body_path: release_notes.md
-          prerelease: true
-          make_latest: false
-          files: |
+          path: |
             ${{ steps.ver.outputs.artifact_base }}_chrome.zip
             ${{ steps.ver.outputs.artifact_base }}_chrome.tar.gz
             ${{ steps.ver.outputs.artifact_base }}_firefox.zip
             ${{ steps.ver.outputs.artifact_base }}_firefox.xpi
             ${{ steps.ver.outputs.artifact_base }}_firefox.tar.gz
             checksums.txt
+            artifact_notes.md
