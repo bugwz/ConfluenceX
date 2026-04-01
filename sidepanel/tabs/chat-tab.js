@@ -129,34 +129,66 @@
   // ─── Page Content ────────────────────────────────────────────────────────────
 
   async function fetchPageContent() {
-    if (!pageContext || !pageContext.pageId) return;
+    if (!pageContext || !pageContext.pageId) return false;
 
     setStatus('Loading page content...');
 
     try {
       const stored = await cfxApi.storage.local.get([CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]);
-      const baseUrl = stored[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL] || pageContext.baseUrl;
+      const baseUrlCandidates = [
+        stored[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL],
+        pageContext.baseUrl,
+      ].filter(Boolean);
+      const uniqueBaseUrls = [...new Set(baseUrlCandidates)];
 
-      const response = await cfxApi.runtime.sendMessage({
-        type: MSG.FETCH_PAGE_CONTENT,
-        payload: { baseUrl, pageId: pageContext.pageId },
-      });
+      let lastError = null;
+      for (const baseUrl of uniqueBaseUrls) {
+        const response = await cfxApi.runtime.sendMessage({
+          type: MSG.FETCH_PAGE_CONTENT,
+          payload: { baseUrl, pageId: pageContext.pageId },
+        });
 
-      if (!response || !response.success) {
-        setStatus('Failed to load page');
-        addSystemMessage(`Could not load page content: ${response?.error || 'Unknown error'}. Make sure you are logged into Confluence.`);
-        return;
+        if (response && response.success) {
+          pageData = response.data;
+          const title = pageData.title;
+          const version = pageData.version?.number;
+          setStatus(`Loaded: ${title} (v${version})`);
+          addSystemMessage(`Page loaded: "${title}" (v${version}) — you can now ask AI to edit it.`);
+          return true;
+        }
+
+        lastError = response?.error || 'Unknown error';
       }
 
-      pageData = response.data;
-      const title = pageData.title;
-      const version = pageData.version?.number;
-      setStatus(`Loaded: ${title} (v${version})`);
-      addSystemMessage(`Page loaded: "${title}" (v${version}) — you can now ask AI to edit it.`);
+      setStatus('Failed to load page');
+      addSystemMessage(`Could not load page content: ${lastError}. Make sure you are logged into Confluence.`);
+      return false;
     } catch (err) {
       setStatus('Error');
       addSystemMessage(`Error loading page: ${err.message}`);
+      return false;
     }
+  }
+
+  async function refreshPageContextFromActiveTab() {
+    try {
+      const tabs = await cfxApi.tabs.query({ active: true, currentWindow: true });
+      if (!tabs || !tabs.length) return null;
+      const tab = tabs[0];
+      const response = await cfxApi.tabs.sendMessage(tab.id, { type: MSG.GET_PAGE_CONTEXT });
+      if (!response || !response.success || !response.data) return null;
+      pageContext = response.data;
+      return pageContext;
+    } catch (err) {
+      return null;
+    }
+  }
+
+  async function ensurePageDataLoaded() {
+    if (pageData) return true;
+    await refreshPageContextFromActiveTab();
+    if (!pageContext || !pageContext.isConfluencePage || !pageContext.pageId) return false;
+    return fetchPageContent();
   }
 
   // ─── Chat Flow ────────────────────────────────────────────────────────────────
@@ -165,7 +197,7 @@
     const text = inputEl.value.trim();
     if (!text || isLoading) return;
 
-    if (!pageData) {
+    if (!pageData && !(await ensurePageDataLoaded())) {
       addSystemMessage('Page content not loaded yet. Please wait or navigate to a Confluence page.');
       return;
     }
