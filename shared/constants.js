@@ -29,6 +29,7 @@
     DARK_MODE: 'cfx_dark_mode',           // boolean
     ENABLE_COPY_MARKDOWN: 'cfx_enable_copy_markdown', // boolean
     ENABLE_THEME_BUTTON: 'cfx_enable_theme_button', // boolean
+    ENABLE_EDITOR_SCROLL_FIX: 'cfx_enable_editor_scroll_fix', // boolean
     CONFLUENCE_BASE_URL: 'cfx_base_url',  // auto-detected or user override
     CONFLUENCE_ALLOWED_ORIGINS: 'cfx_confluence_allowed_origins', // string[]
     MAX_CONTENT_LENGTH: 'cfx_max_content_length',
@@ -73,6 +74,7 @@
     CONFLUENCE_ALLOWED_ORIGINS: [],
     ENABLE_COPY_MARKDOWN: true,
     ENABLE_THEME_BUTTON: true,
+    ENABLE_EDITOR_SCROLL_FIX: true,
   });
 
   const DARK_MODE_CLASS = 'confluencex-dark';

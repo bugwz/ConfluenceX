@@ -31,6 +31,7 @@
         "shared/message-types.js",
         "content/page-detector.js",
         "content/scroll-to-top.js",
+        "content/editor-scroll-fix.js",
         "content/dark-mode.js",
         "content/content-main.js"
       ],
@@ -47,7 +48,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["content/dark-mode.css"],
+      "resources": ["content/dark-mode.css", "content/editor-scroll-fix-injected.js"],
       "matches": ["*://*/*"]
     }
   ],

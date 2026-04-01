@@ -364,6 +364,28 @@
     themeBtnRow.appendChild(themeBtnToggle);
     form.appendChild(themeBtnRow);
 
+    // ── Editor Scroll Fix Toggle ──
+    const editorFixRow = document.createElement('div');
+    editorFixRow.className = 'cfx-toggle-row';
+    const editorFixInfo = document.createElement('div');
+    editorFixInfo.innerHTML = `
+      <div class="cfx-toggle-label">Editor Scroll Fix</div>
+      <div class="cfx-toggle-desc">Mitigate abnormal cursor/scroll jumping in Confluence editor</div>
+    `;
+    const editorFixToggle = document.createElement('label');
+    editorFixToggle.className = 'cfx-toggle';
+    const editorFixCheckbox = document.createElement('input');
+    editorFixCheckbox.type = 'checkbox';
+    editorFixCheckbox.checked = settings[CFX.STORAGE_KEYS.ENABLE_EDITOR_SCROLL_FIX]
+      ?? CFX.DEFAULTS.ENABLE_EDITOR_SCROLL_FIX;
+    const editorFixSlider = document.createElement('span');
+    editorFixSlider.className = 'cfx-toggle-slider';
+    editorFixToggle.appendChild(editorFixCheckbox);
+    editorFixToggle.appendChild(editorFixSlider);
+    editorFixRow.appendChild(editorFixInfo);
+    editorFixRow.appendChild(editorFixToggle);
+    form.appendChild(editorFixRow);
+
     // ── Save Button ──
     const saveRow = document.createElement('div');
     saveRow.style.cssText = 'margin-top:16px;display:flex;gap:8px;align-items:center;';
@@ -391,6 +413,7 @@
         [CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH]: parseInt(maxLenInput.value, 10) || CFX.DEFAULTS.MAX_CONTENT_LENGTH,
         [CFX.STORAGE_KEYS.ENABLE_COPY_MARKDOWN]: copyMdCheckbox.checked,
         [CFX.STORAGE_KEYS.ENABLE_THEME_BUTTON]: themeBtnCheckbox.checked,
+        [CFX.STORAGE_KEYS.ENABLE_EDITOR_SCROLL_FIX]: editorFixCheckbox.checked,
       };
 
       try {

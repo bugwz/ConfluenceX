@@ -15,6 +15,11 @@
     window.cfxScrollToTop.init();
   }
 
+  // Initialize Confluence editor scroll/cursor jump workaround
+  if (window.cfxEditorScrollFix) {
+    window.cfxEditorScrollFix.init();
+  }
+
   // Initialize dark mode (restores saved state)
   if (window.cfxDarkMode) {
     window.cfxDarkMode.init();
