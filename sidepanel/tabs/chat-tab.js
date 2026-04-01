@@ -213,27 +213,32 @@
     // Show user message
     addMessage('user', text);
 
-    // Build AI messages
-    const pageContent = pageData.body?.storage?.value || '';
-    const maxLen = await getMaxContentLength();
-    const messages = aiClient.buildMessages(chatHistory, pageContent, text, maxLen);
-
-    // Show typing indicator
-    const typingEl = cfxChatMessage.createTypingIndicator();
-    messagesEl.appendChild(typingEl);
-    scrollToBottom();
+    let typingEl = null;
 
     try {
+      // Build AI messages
+      const pageContent = pageData.body?.storage?.value || '';
+      const maxLen = await getMaxContentLength();
+      if (!globalThis.aiClient || typeof globalThis.aiClient.buildMessages !== 'function') {
+        throw new Error('AI client is unavailable. Please reload the extension.');
+      }
+      const messages = globalThis.aiClient.buildMessages(chatHistory, pageContent, text, maxLen);
+
+      // Show typing indicator
+      typingEl = cfxChatMessage.createTypingIndicator();
+      messagesEl.appendChild(typingEl);
+      scrollToBottom();
+
       const response = await cfxApi.runtime.sendMessage({
         type: MSG.AI_CHAT_REQUEST,
         payload: { messages },
       });
 
       typingEl.remove();
+      typingEl = null;
 
       if (!response || !response.success) {
         addMessage('assistant', `Error: ${response?.error || 'AI request failed'}`);
-        setLoading(false);
         return;
       }
 
@@ -263,12 +268,12 @@
         addMessage('assistant', aiText);
       }
     } catch (err) {
-      typingEl.remove();
+      if (typingEl) typingEl.remove();
       addMessage('assistant', `Error: ${err.message}`);
+    } finally {
+      setLoading(false);
+      scrollToBottom();
     }
-
-    setLoading(false);
-    scrollToBottom();
   }
 
   // ─── Diff & Apply/Reject ──────────────────────────────────────────────────────

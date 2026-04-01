@@ -266,7 +266,6 @@ async function handleGetSettings(sendResponse) {
 async function handleSaveSettings({ settings }, sendResponse) {
   try {
     await cfxApi.storage.local.set(settings);
-    refreshSidePanelForActiveTab().catch(() => {});
     sendResponse({ success: true });
   } catch (err) {
     sendResponse({ success: false, error: err.message });
