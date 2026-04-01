@@ -13,6 +13,8 @@
   let pendingEdit = null;      // { snapshotId, before, after } awaiting apply/reject
   let isLoading = false;
   let showingHistory = false;
+  let orgRunState = null;      // { baseUrl, snapshot, plan, dryRun, runId, executionResult }
+  let orgProgressBound = false;
 
   // DOM refs
   let messagesEl = null;
@@ -25,6 +27,7 @@
   function init(containerId, ctx) {
     container = document.getElementById(containerId);
     pageContext = ctx;
+    bindOrgProgressListener();
     render();
   }
 
@@ -116,7 +119,7 @@
     container.appendChild(inputArea);
 
     // Greet
-    addSystemMessage('ConfluenceX is ready. Ask AI to edit the current Confluence page.');
+    addSystemMessage('ConfluenceX is ready. Ask AI to edit the page, or use "/organize <goal>" to plan tree reorganization.');
 
     // Auto-fetch if we have context
     if (pageContext && pageContext.isConfluencePage && pageContext.pageId) {
@@ -197,21 +200,35 @@
     const text = inputEl.value.trim();
     if (!text || isLoading) return;
 
-    if (!pageData && !(await ensurePageDataLoaded())) {
-      addSystemMessage('Page content not loaded yet. Please wait or navigate to a Confluence page.');
-      return;
-    }
-
-    if (pendingEdit) {
-      addSystemMessage('You have a pending edit. Please Apply or Reject it before sending another message.');
-      return;
-    }
-
     inputEl.value = '';
     setLoading(true);
 
     // Show user message
     addMessage('user', text);
+
+    if (isOrganizeCommand(text)) {
+      try {
+        await handleOrganizeCommand(text);
+      } catch (err) {
+        addMessage('assistant', `Organizer error: ${err.message}`);
+      } finally {
+        setLoading(false);
+        scrollToBottom();
+      }
+      return;
+    }
+
+    if (!pageData && !(await ensurePageDataLoaded())) {
+      setLoading(false);
+      addSystemMessage('Page content not loaded yet. Please wait or navigate to a Confluence page.');
+      return;
+    }
+
+    if (pendingEdit) {
+      setLoading(false);
+      addSystemMessage('You have a pending edit. Please Apply or Reject it before sending another message.');
+      return;
+    }
 
     let typingEl = null;
 
@@ -274,6 +291,247 @@
       setLoading(false);
       scrollToBottom();
     }
+  }
+
+  function isOrganizeCommand(text) {
+    return /^\/organize\b/i.test(text.trim()) || /^\/reorg\b/i.test(text.trim());
+  }
+
+  async function getConfluenceBaseUrl() {
+    const stored = await cfxApi.storage.local.get([CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]);
+    return stored[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL] || pageContext?.baseUrl || '';
+  }
+
+  function extractOrganizeGoal(text) {
+    return text.replace(/^\/organize\b/i, '').replace(/^\/reorg\b/i, '').trim();
+  }
+
+  async function handleOrganizeCommand(text) {
+    const goal = extractOrganizeGoal(text);
+    if (!goal) {
+      addSystemMessage('Use format: /organize <how to reorganize this subtree>');
+      return;
+    }
+    if (!pageContext?.isConfluencePage || !pageContext?.pageId) {
+      addSystemMessage('Open a Confluence page first. The current page is used as organize root.');
+      return;
+    }
+
+    const baseUrl = await getConfluenceBaseUrl();
+    if (!baseUrl) {
+      addSystemMessage('Confluence base URL not configured.');
+      return;
+    }
+
+    addSystemMessage('Organizer: scanning subtree...');
+    const planResponse = await cfxApi.runtime.sendMessage({
+      type: MSG.AI_ORG_PLAN_REQUEST,
+      payload: {
+        baseUrl,
+        rootPageId: pageContext.pageId,
+        userRequest: goal,
+      },
+    });
+    if (!planResponse?.success) {
+      throw new Error(planResponse?.error || 'Failed to build organization plan');
+    }
+
+    const { snapshot, plan } = planResponse.data;
+    const validationResponse = await cfxApi.runtime.sendMessage({
+      type: MSG.AI_ORG_VALIDATE_REQUEST,
+      payload: { snapshot, plan },
+    });
+    if (!validationResponse?.success) {
+      throw new Error(validationResponse?.error || 'Failed to validate organization plan');
+    }
+
+    const validation = validationResponse.data;
+    orgRunState = {
+      baseUrl,
+      snapshot,
+      plan,
+      dryRun: validation.dryRun,
+      validation,
+      runId: null,
+      executionResult: null,
+    };
+
+    addMessage('assistant', [
+      `Organization plan ready for subtree "${snapshot.rootTitle}".`,
+      `- Nodes scanned: ${snapshot.total}`,
+      `- Operations: ${plan.operations.length}`,
+      `- Batches: ${validation.dryRun?.batches?.length || 0}`,
+      `- Validation: ${validation.valid ? 'pass' : 'failed'}`,
+    ].join('\n'));
+
+    renderOrganizationCard();
+  }
+
+  function renderOrganizationCard() {
+    if (!orgRunState || !messagesEl) return;
+
+    const existing = document.getElementById('cfx-org-card');
+    if (existing) existing.remove();
+
+    const card = document.createElement('div');
+    card.id = 'cfx-org-card';
+    card.className = 'cfx-org-card';
+
+    const validation = orgRunState.validation || {};
+    const dryRun = orgRunState.dryRun || {};
+    const risk = dryRun.riskReport || { low: 0, medium: 0, high: 0 };
+
+    const title = document.createElement('div');
+    title.className = 'cfx-org-card-title';
+    title.textContent = 'Tree Organization Dry-run';
+    card.appendChild(title);
+
+    const summary = document.createElement('div');
+    summary.className = 'cfx-org-card-summary';
+    summary.textContent = orgRunState.plan?.summary || 'No summary.';
+    card.appendChild(summary);
+
+    const stats = document.createElement('div');
+    stats.className = 'cfx-org-card-stats';
+    stats.textContent = `Ops ${dryRun.totalOperations || 0} · Batches ${dryRun.batches?.length || 0} · Risk L/M/H ${risk.low}/${risk.medium}/${risk.high}`;
+    card.appendChild(stats);
+
+    const preview = document.createElement('div');
+    preview.className = 'cfx-org-card-preview';
+    const previewLines = (dryRun.previews || []).slice(0, 6).map((item) => {
+      return `${item.type === 'MOVE_PAGE' ? 'Move' : 'Rename'}: ${item.beforePath} -> ${item.afterPath}`;
+    });
+    preview.textContent = previewLines.length ? previewLines.join('\n') : 'No operations to preview.';
+    card.appendChild(preview);
+
+    if (validation.errors?.length) {
+      const errors = document.createElement('div');
+      errors.className = 'cfx-org-card-errors';
+      errors.textContent = `Validation errors: ${validation.errors.join(' | ')}`;
+      card.appendChild(errors);
+    }
+
+    const controls = document.createElement('div');
+    controls.className = 'cfx-org-card-controls';
+
+    const execBtn = document.createElement('button');
+    execBtn.className = 'cfx-btn cfx-btn-success';
+    execBtn.textContent = 'Execute Plan';
+    execBtn.disabled = !validation.valid || !orgRunState.plan?.operations?.length;
+    execBtn.addEventListener('click', executeOrganizationPlan);
+
+    const abortBtn = document.createElement('button');
+    abortBtn.className = 'cfx-btn cfx-btn-danger';
+    abortBtn.textContent = 'Abort';
+    abortBtn.disabled = !orgRunState.runId;
+    abortBtn.addEventListener('click', abortOrganizationRun);
+
+    const rollbackBtn = document.createElement('button');
+    rollbackBtn.className = 'cfx-btn cfx-btn-secondary';
+    rollbackBtn.textContent = 'Rollback';
+    rollbackBtn.disabled = !orgRunState.runId || !orgRunState.executionResult;
+    rollbackBtn.addEventListener('click', rollbackOrganizationRun);
+
+    controls.appendChild(execBtn);
+    controls.appendChild(abortBtn);
+    controls.appendChild(rollbackBtn);
+    card.appendChild(controls);
+
+    messagesEl.appendChild(card);
+    scrollToBottom();
+  }
+
+  async function executeOrganizationPlan() {
+    if (!orgRunState) return;
+    if (!confirm('Execute this organization plan? This will modify page tree structure.')) return;
+
+    addSystemMessage('Organizer: executing plan...');
+    const response = await cfxApi.runtime.sendMessage({
+      type: MSG.AI_ORG_EXECUTE_REQUEST,
+      payload: {
+        baseUrl: orgRunState.baseUrl,
+        snapshot: orgRunState.snapshot,
+        plan: orgRunState.plan,
+      },
+    });
+
+    if (!response?.success) {
+      addSystemMessage(`Organizer execution failed: ${response?.error || 'Unknown error'}`);
+      if (response?.data?.runId) {
+        orgRunState.runId = response.data.runId;
+      }
+      renderOrganizationCard();
+      return;
+    }
+
+    orgRunState.runId = response.data.runId;
+    orgRunState.executionResult = response.data;
+    addSystemMessage(`Organizer completed: ${response.data.executed}/${response.data.totalOperations} operations.`);
+    renderOrganizationCard();
+  }
+
+  async function abortOrganizationRun() {
+    if (!orgRunState?.runId) return;
+    const response = await cfxApi.runtime.sendMessage({
+      type: MSG.AI_ORG_ABORT_REQUEST,
+      payload: { runId: orgRunState.runId },
+    });
+    if (response?.success) {
+      addSystemMessage(`Organizer run ${orgRunState.runId} marked for abort.`);
+    } else {
+      addSystemMessage(`Abort failed: ${response?.error || 'Unknown error'}`);
+    }
+  }
+
+  async function rollbackOrganizationRun() {
+    if (!orgRunState?.runId) return;
+    if (!confirm(`Rollback organizer run ${orgRunState.runId}?`)) return;
+
+    const response = await cfxApi.runtime.sendMessage({
+      type: MSG.AI_ORG_ROLLBACK_REQUEST,
+      payload: {
+        runId: orgRunState.runId,
+        baseUrl: orgRunState.baseUrl,
+      },
+    });
+    if (response?.success) {
+      addSystemMessage(`Rollback completed: ${response.data.rolledBack} operations reverted.`);
+      orgRunState.executionResult = null;
+      renderOrganizationCard();
+    } else {
+      addSystemMessage(`Rollback failed: ${response?.error || 'Unknown error'}`);
+    }
+  }
+
+  function bindOrgProgressListener() {
+    if (orgProgressBound || !cfxApi.runtime?.onMessage) return;
+    cfxApi.runtime.onMessage.addListener((message) => {
+      if (!message || message.type !== MSG.AI_ORG_EXECUTE_PROGRESS) return;
+      const payload = message.payload || {};
+      if (!orgRunState || (orgRunState.runId && payload.runId !== orgRunState.runId)) return;
+
+      if (payload.runId && !orgRunState.runId) {
+        orgRunState.runId = payload.runId;
+        renderOrganizationCard();
+      }
+
+      const stageMap = {
+        started: 'Organizer started',
+        batch_started: `Batch ${payload.batchIndex + 1} started`,
+        op_started: `Running ${payload.opId} (${payload.type})`,
+        op_succeeded: `${payload.opId} succeeded`,
+        op_failed: `${payload.opId} failed: ${payload.error}`,
+        batch_succeeded: `Batch ${payload.batchIndex + 1} completed`,
+        completed: 'Organizer finished',
+        aborted: 'Organizer aborted',
+        rollback_step: `Rolled back ${payload.opId}`,
+        rolled_back: 'Rollback finished',
+      };
+      if (stageMap[payload.stage]) {
+        addSystemMessage(stageMap[payload.stage]);
+      }
+    });
+    orgProgressBound = true;
   }
 
   // ─── Diff & Apply/Reject ──────────────────────────────────────────────────────

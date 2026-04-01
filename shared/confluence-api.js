@@ -156,6 +156,30 @@
   }
 
   /**
+   * Rename a page while preserving body and ancestors.
+   */
+  async function renamePage(baseUrl, pageId, newTitle, auth) {
+    if (!newTitle || !newTitle.trim()) {
+      throw new ConfluenceApiError('New title is required for rename.', 400);
+    }
+
+    const page = await getPageContent(baseUrl, pageId, auth);
+    const currentVersion = page.version.number;
+    const bodyValue = page.body.storage.value;
+    const ancestors = Array.isArray(page.ancestors) ? page.ancestors : [];
+
+    return updatePageContent(
+      baseUrl,
+      pageId,
+      newTitle.trim(),
+      bodyValue,
+      currentVersion + 1,
+      ancestors,
+      auth
+    );
+  }
+
+  /**
    * GET /rest/api/content/search?cql=...
    */
   async function searchPages(baseUrl, cql, limit = 20, start = 0, auth) {
@@ -207,6 +231,69 @@
     return cfxFetch(url, {}, auth);
   }
 
+  /**
+   * Scan a subtree rooted at rootPageId.
+   * Returns a flat list of page nodes with parent relation and depth.
+   */
+  async function getTreeSnapshot(baseUrl, rootPageId, depthLimit = 5, pageLimit = 500, auth) {
+    if (!rootPageId) {
+      throw new ConfluenceApiError('rootPageId is required.', 400);
+    }
+
+    const root = await getPageContent(baseUrl, rootPageId, auth);
+    const nodes = [];
+    const queue = [{
+      page: root,
+      depth: 0,
+    }];
+    const seen = new Set();
+
+    while (queue.length > 0 && nodes.length < pageLimit) {
+      const current = queue.shift();
+      const page = current.page;
+      const depth = current.depth;
+      const pageId = String(page.id);
+      if (seen.has(pageId)) continue;
+      seen.add(pageId);
+
+      const ancestors = Array.isArray(page.ancestors) ? page.ancestors : [];
+      const immediateParent = ancestors.length ? String(ancestors[ancestors.length - 1].id) : null;
+      nodes.push({
+        id: pageId,
+        title: page.title || '',
+        parentId: immediateParent,
+        depth,
+        version: page.version?.number || null,
+        spaceKey: page.space?.key || '',
+      });
+
+      if (depth >= depthLimit) continue;
+
+      let start = 0;
+      const limit = 50;
+      while (nodes.length + queue.length < pageLimit) {
+        const childResult = await getChildPages(baseUrl, pageId, limit, start, auth);
+        const children = Array.isArray(childResult?.results) ? childResult.results : [];
+        if (!children.length) break;
+
+        children.forEach((child) => {
+          queue.push({ page: child, depth: depth + 1 });
+        });
+
+        if (children.length < limit) break;
+        start += limit;
+      }
+    }
+
+    return {
+      rootId: String(root.id),
+      rootTitle: root.title || '',
+      scannedAt: Date.now(),
+      total: nodes.length,
+      nodes,
+    };
+  }
+
   // Export to globalThis for service worker context
   const confluenceApi = {
     getPageContent,
@@ -216,6 +303,8 @@
     getChildPages,
     getSpaces,
     getSpaceRootPages,
+    renamePage,
+    getTreeSnapshot,
     ConfluenceApiError,
   };
 
