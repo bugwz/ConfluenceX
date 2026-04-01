@@ -16,12 +16,6 @@
     return !!(ctx && ctx.isConfluencePage);
   }
 
-  function isEditorContext() {
-    const pathAndQuery = `${location.pathname}${location.search}`.toLowerCase();
-    if (/editpage|resumedraft|createpage/.test(pathAndQuery)) return true;
-    return !!document.getElementById('wysiwygTextarea_ifr');
-  }
-
   async function isEnabled() {
     try {
       const api = (typeof globalThis !== 'undefined' && globalThis.cfxApi)
@@ -49,7 +43,6 @@
 
   async function tryInject() {
     if (!isConfluencePage()) return;
-    if (!isEditorContext()) return;
     if (!(await isEnabled())) return;
     injectIntoPage();
   }

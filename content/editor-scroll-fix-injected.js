@@ -6,28 +6,55 @@
 (function () {
   'use strict';
 
-  if (window.__cfxEditorScrollFixPatched) return;
-  window.__cfxEditorScrollFixPatched = true;
-
   const JUMP_THRESHOLD = 200;
-  let patched = false;
+  const state = window.__cfxEditorScrollFixState || {
+    initialized: false,
+    observer: null,
+  };
+  window.__cfxEditorScrollFixState = state;
 
-  function patchIframe() {
-    if (patched) return true;
-
+  function getIframeDoc() {
     const iframe = document.getElementById('wysiwygTextarea_ifr');
-    if (!iframe) return false;
+    if (!iframe) return null;
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc || !doc.body) return null;
+    return { iframe, doc };
+  }
 
-    const contentDoc = iframe.contentDocument || iframe.contentWindow?.document;
-    if (!contentDoc || !contentDoc.body) return false;
-    if (contentDoc.__cfxScrollFixBound) {
-      patched = true;
-      return true;
+  function restoreIfJump(saved, editorContainer, contentDoc) {
+    const outerDelta = Math.abs(window.scrollY - saved.outer);
+    const containerDelta = editorContainer
+      ? Math.abs(editorContainer.scrollTop - saved.container)
+      : 0;
+    const iframeDocTop = contentDoc.documentElement ? contentDoc.documentElement.scrollTop : 0;
+    const iframeBodyTop = contentDoc.body ? contentDoc.body.scrollTop : 0;
+    const iframeDelta = Math.max(
+      Math.abs(iframeDocTop - saved.iframeDoc),
+      Math.abs(iframeBodyTop - saved.iframeBody)
+    );
+
+    if (outerDelta > JUMP_THRESHOLD) {
+      window.scrollTo(0, saved.outer);
     }
+    if (containerDelta > JUMP_THRESHOLD && editorContainer) {
+      editorContainer.scrollTop = saved.container;
+    }
+    if (iframeDelta > JUMP_THRESHOLD) {
+      if (contentDoc.documentElement) contentDoc.documentElement.scrollTop = saved.iframeDoc;
+      if (contentDoc.body) contentDoc.body.scrollTop = saved.iframeBody;
+    }
+  }
 
-    // Keep editable area height natural, avoids some jump-to-top edge cases.
-    contentDoc.documentElement.style.height = 'auto';
-    contentDoc.body.style.height = 'auto';
+  function bindForCurrentIframe() {
+    const frame = getIframeDoc();
+    if (!frame) return false;
+
+    const { iframe, doc: contentDoc } = frame;
+    if (contentDoc.__cfxScrollFixBound) return true;
+
+    // Match reference behavior: keep iframe html/body height natural.
+    contentDoc.documentElement.style.setProperty('height', 'auto', 'important');
+    contentDoc.body.style.setProperty('height', 'auto', 'important');
 
     const editorContainer = document.getElementById('editor-scrollbar-content')
       || document.getElementById('content-editor')
@@ -41,81 +68,46 @@
         iframeBody: contentDoc.body ? contentDoc.body.scrollTop : 0,
       };
 
-      setTimeout(() => {
-        const outerDelta = Math.abs(window.scrollY - savedScroll.outer);
-        const containerDelta = editorContainer
-          ? Math.abs(editorContainer.scrollTop - savedScroll.container)
-          : 0;
-        const iframeDocTop = contentDoc.documentElement ? contentDoc.documentElement.scrollTop : 0;
-        const iframeBodyTop = contentDoc.body ? contentDoc.body.scrollTop : 0;
-        const iframeDelta = Math.max(
-          Math.abs(iframeDocTop - savedScroll.iframeDoc),
-          Math.abs(iframeBodyTop - savedScroll.iframeBody)
-        );
-
-        if (outerDelta > JUMP_THRESHOLD) {
-          window.scrollTo(0, savedScroll.outer);
-        }
-        if (containerDelta > JUMP_THRESHOLD && editorContainer) {
-          editorContainer.scrollTop = savedScroll.container;
-        }
-        if (iframeDelta > JUMP_THRESHOLD) {
-          if (contentDoc.documentElement) contentDoc.documentElement.scrollTop = savedScroll.iframeDoc;
-          if (contentDoc.body) contentDoc.body.scrollTop = savedScroll.iframeBody;
-        }
-      }, 0);
+      // Some jumps happen in the same frame, some happen slightly later.
+      setTimeout(() => restoreIfJump(savedScroll, editorContainer, contentDoc), 0);
+      setTimeout(() => restoreIfJump(savedScroll, editorContainer, contentDoc), 48);
     }, true);
 
     contentDoc.__cfxScrollFixBound = true;
-    patched = true;
     return true;
   }
 
-  // Strategy 1: Listen Confluence editor-ready event if available.
-  try {
-    if (typeof require === 'function') {
-      require('confluence/api/event').bind('rte-ready', () => {
-        setTimeout(patchIframe, 50);
+  function install() {
+    // Always attempt immediately.
+    bindForCurrentIframe();
+
+    if (!state.initialized) {
+      state.initialized = true;
+
+      // Strategy 1: Listen Confluence editor-ready event.
+      try {
+        if (typeof require === 'function') {
+          require('confluence/api/event').bind('rte-ready', () => {
+            setTimeout(bindForCurrentIframe, 50);
+          });
+        }
+      } catch (e) {
+        // Ignore if Confluence module API is unavailable.
+      }
+
+      // Strategy 2: Mutation observer for iframe recreation/replacement.
+      state.observer = new MutationObserver(() => {
+        bindForCurrentIframe();
       });
+      state.observer.observe(document.documentElement, { subtree: true, childList: true });
     }
-  } catch (e) {
-    // Ignore if module API is unavailable.
+
+    // Strategy 3: Short polling to cover delayed iframe init.
+    (function poll(attempts) {
+      if (attempts <= 0 || bindForCurrentIframe()) return;
+      setTimeout(() => poll(attempts - 1), 500);
+    })(30);
   }
 
-  // Strategy 2: Poll for iframe availability.
-  (function poll(attempts) {
-    if (attempts <= 0 || patchIframe()) return;
-    setTimeout(() => poll(attempts - 1), 500);
-  })(30);
-
-  // Strategy 3: Observe DOM insertion for editor iframe.
-  const observer = new MutationObserver((mutations) => {
-    if (patched) {
-      observer.disconnect();
-      return;
-    }
-
-    for (let i = 0; i < mutations.length; i += 1) {
-      const addedNodes = mutations[i].addedNodes || [];
-      for (let j = 0; j < addedNodes.length; j += 1) {
-        const node = addedNodes[j];
-        if (!node || node.nodeType !== 1) continue;
-        const hasIframe = node.id === 'wysiwygTextarea_ifr'
-          || (node.querySelector && node.querySelector('#wysiwygTextarea_ifr'));
-        if (!hasIframe) continue;
-
-        let retries = 20;
-        const interval = setInterval(() => {
-          retries -= 1;
-          if (patchIframe() || retries <= 0) {
-            clearInterval(interval);
-            observer.disconnect();
-          }
-        }, 200);
-        return;
-      }
-    }
-  });
-
-  observer.observe(document.documentElement, { subtree: true, childList: true });
+  install();
 })();
