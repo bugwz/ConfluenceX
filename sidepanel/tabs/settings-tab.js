@@ -101,6 +101,8 @@
     } catch (e) { /* use defaults */ }
 
     const provider = settings[CFX.STORAGE_KEYS.AI_PROVIDER] || 'openai';
+    const authMode = settings[CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE] || CFX.DEFAULTS.CONFLUENCE_AUTH_MODE;
+    const deployment = settings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] || CFX.DEFAULTS.CONFLUENCE_DEPLOYMENT;
 
     // ── AI Provider ──
     const providerField = createField('AI Provider');
@@ -162,6 +164,79 @@
       CFX.DEFAULTS.AI_PROVIDERS[provider]?.model || '';
     modelField.appendChild(modelInput);
     form.appendChild(modelField);
+
+    // ── Confluence Auth Mode ──
+    const authModeField = createField('Confluence Auth Mode');
+    const authModeSelect = document.createElement('select');
+    authModeSelect.className = 'cfx-select';
+    [
+      { value: 'cookie', label: 'Cookie (browser login session)' },
+      { value: 'token', label: 'API Token (Cloud)' },
+    ].forEach(({ value, label }) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      opt.selected = value === authMode;
+      authModeSelect.appendChild(opt);
+    });
+    authModeField.appendChild(authModeSelect);
+    form.appendChild(authModeField);
+
+    // ── Confluence Deployment ──
+    const deploymentField = createField('Confluence Deployment');
+    const deploymentSelect = document.createElement('select');
+    deploymentSelect.className = 'cfx-select';
+    [
+      { value: 'cloud', label: 'Cloud' },
+      { value: 'dc', label: 'Data Center / Server (reserved)' },
+    ].forEach(({ value, label }) => {
+      const opt = document.createElement('option');
+      opt.value = value;
+      opt.textContent = label;
+      opt.selected = value === deployment;
+      deploymentSelect.appendChild(opt);
+    });
+    deploymentField.appendChild(deploymentSelect);
+    form.appendChild(deploymentField);
+
+    // ── Confluence Email / Token ──
+    const confluenceEmailField = createField('Confluence Email');
+    const confluenceEmailInput = document.createElement('input');
+    confluenceEmailInput.type = 'email';
+    confluenceEmailInput.className = 'cfx-input';
+    confluenceEmailInput.placeholder = 'you@company.com';
+    confluenceEmailInput.value = settings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || '';
+    confluenceEmailField.appendChild(confluenceEmailInput);
+    form.appendChild(confluenceEmailField);
+
+    const confluenceTokenField = createField('Confluence API Token');
+    const confluenceTokenWrapper = document.createElement('div');
+    confluenceTokenWrapper.className = 'cfx-password-wrapper';
+    const confluenceTokenInput = document.createElement('input');
+    confluenceTokenInput.type = 'password';
+    confluenceTokenInput.className = 'cfx-input';
+    confluenceTokenInput.placeholder = 'Confluence API token';
+    confluenceTokenInput.value = settings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN] || '';
+    const confluenceTokenEye = document.createElement('button');
+    confluenceTokenEye.className = 'cfx-password-toggle';
+    confluenceTokenEye.type = 'button';
+    confluenceTokenEye.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+    confluenceTokenEye.addEventListener('click', () => {
+      confluenceTokenInput.type = confluenceTokenInput.type === 'password' ? 'text' : 'password';
+    });
+    confluenceTokenWrapper.appendChild(confluenceTokenInput);
+    confluenceTokenWrapper.appendChild(confluenceTokenEye);
+    confluenceTokenField.appendChild(confluenceTokenWrapper);
+    form.appendChild(confluenceTokenField);
+
+    function updateAuthFieldVisibility() {
+      const isTokenMode = authModeSelect.value === 'token';
+      confluenceEmailField.style.display = isTokenMode ? 'block' : 'none';
+      confluenceTokenField.style.display = isTokenMode ? 'block' : 'none';
+      deploymentSelect.disabled = !isTokenMode;
+    }
+    authModeSelect.addEventListener('change', updateAuthFieldVisibility);
+    updateAuthFieldVisibility();
 
     // ── Confluence Base URL ──
     const baseUrlField = createField('Confluence Base URL');
@@ -248,11 +323,24 @@
         [CFX.STORAGE_KEYS.AI_ENDPOINT]: endpointInput.value.trim(),
         [CFX.STORAGE_KEYS.AI_API_KEY]: keyInput.value.trim(),
         [CFX.STORAGE_KEYS.AI_MODEL]: modelInput.value.trim(),
+        [CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE]: authModeSelect.value,
+        [CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT]: deploymentSelect.value,
+        [CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL]: confluenceEmailInput.value.trim(),
+        [CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]: confluenceTokenInput.value.trim(),
         [CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]: baseUrlInput.value.trim(),
         [CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH]: parseInt(maxLenInput.value, 10) || CFX.DEFAULTS.MAX_CONTENT_LENGTH,
       };
 
       try {
+        if (newSettings[CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE] === 'token') {
+          if (newSettings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] !== 'cloud') {
+            throw new Error('Only Confluence Cloud token mode is currently supported');
+          }
+          if (!newSettings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || !newSettings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]) {
+            throw new Error('Confluence email and API token are required in token mode');
+          }
+        }
+
         const api = getApi();
         if (!api) throw new Error('Extension API unavailable');
         await api.storage.local.set(newSettings);

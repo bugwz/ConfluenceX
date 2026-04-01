@@ -106,18 +106,41 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 // ─── Confluence API Handlers ─────────────────────────────────────────────────
 
+async function getConfluenceAuthConfig() {
+  const keys = [
+    CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE,
+    CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT,
+    CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL,
+    CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN,
+  ];
+  const settings = await cfxApi.storage.local.get(keys);
+
+  const mode = settings[CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE] || CFX.DEFAULTS.CONFLUENCE_AUTH_MODE;
+  const deployment = settings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] || CFX.DEFAULTS.CONFLUENCE_DEPLOYMENT;
+  const userEmail = (settings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || '').trim();
+  const apiToken = (settings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN] || '').trim();
+
+  if (mode === 'token' && (!userEmail || !apiToken)) {
+    throw new Error('Token auth mode requires Confluence email and API token in Settings.');
+  }
+
+  return { mode, deployment, userEmail, apiToken };
+}
+
 async function handleFetchPageContent({ baseUrl, pageId }, sendResponse) {
   try {
-    const data = await confluenceApi.getPageContent(baseUrl, pageId);
+    const auth = await getConfluenceAuthConfig();
+    const data = await confluenceApi.getPageContent(baseUrl, pageId, auth);
     sendResponse({ success: true, data });
   } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    sendResponse({ success: false, error: err.message, status: err.status });
   }
 }
 
 async function handleSavePage({ baseUrl, pageId, title, body, version, ancestors }, sendResponse) {
   try {
-    const data = await confluenceApi.updatePageContent(baseUrl, pageId, title, body, version, ancestors);
+    const auth = await getConfluenceAuthConfig();
+    const data = await confluenceApi.updatePageContent(baseUrl, pageId, title, body, version, ancestors, auth);
     sendResponse({ success: true, data });
   } catch (err) {
     sendResponse({ success: false, error: err.message, status: err.status });
@@ -126,37 +149,41 @@ async function handleSavePage({ baseUrl, pageId, title, body, version, ancestors
 
 async function handleMovePage({ baseUrl, pageId, newAncestorId }, sendResponse) {
   try {
-    const data = await confluenceApi.movePage(baseUrl, pageId, newAncestorId);
+    const auth = await getConfluenceAuthConfig();
+    const data = await confluenceApi.movePage(baseUrl, pageId, newAncestorId, auth);
     sendResponse({ success: true, data });
   } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    sendResponse({ success: false, error: err.message, status: err.status });
   }
 }
 
 async function handleSearchPages({ baseUrl, cql, limit, start }, sendResponse) {
   try {
-    const data = await confluenceApi.searchPages(baseUrl, cql, limit, start);
+    const auth = await getConfluenceAuthConfig();
+    const data = await confluenceApi.searchPages(baseUrl, cql, limit, start, auth);
     sendResponse({ success: true, data });
   } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    sendResponse({ success: false, error: err.message, status: err.status });
   }
 }
 
 async function handleGetChildPages({ baseUrl, pageId, limit, start }, sendResponse) {
   try {
-    const data = await confluenceApi.getChildPages(baseUrl, pageId, limit, start);
+    const auth = await getConfluenceAuthConfig();
+    const data = await confluenceApi.getChildPages(baseUrl, pageId, limit, start, auth);
     sendResponse({ success: true, data });
   } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    sendResponse({ success: false, error: err.message, status: err.status });
   }
 }
 
 async function handleGetSpaces({ baseUrl }, sendResponse) {
   try {
-    const data = await confluenceApi.getSpaces(baseUrl);
+    const auth = await getConfluenceAuthConfig();
+    const data = await confluenceApi.getSpaces(baseUrl, 50, 0, auth);
     sendResponse({ success: true, data });
   } catch (err) {
-    sendResponse({ success: false, error: err.message });
+    sendResponse({ success: false, error: err.message, status: err.status });
   }
 }
 

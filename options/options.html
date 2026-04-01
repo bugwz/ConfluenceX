@@ -43,6 +43,33 @@
     <section class="opt-section">
       <h2>Confluence</h2>
       <div class="opt-field">
+        <label for="authMode">Auth Mode</label>
+        <select id="authMode" class="opt-select">
+          <option value="cookie">Cookie (browser login session)</option>
+          <option value="token">API Token (Cloud)</option>
+        </select>
+      </div>
+      <div class="opt-field">
+        <label for="deployment">Deployment</label>
+        <select id="deployment" class="opt-select">
+          <option value="cloud">Cloud</option>
+          <option value="dc">Data Center / Server (reserved)</option>
+        </select>
+      </div>
+      <div id="tokenAuthFields">
+        <div class="opt-field">
+          <label for="confluenceEmail">Confluence Email</label>
+          <input type="email" id="confluenceEmail" class="opt-input" placeholder="you@company.com">
+        </div>
+        <div class="opt-field">
+          <label for="confluenceToken">Confluence API Token</label>
+          <div class="opt-password-wrap">
+            <input type="password" id="confluenceToken" class="opt-input" placeholder="Confluence API token">
+            <button id="toggleConfluenceToken" type="button">Show</button>
+          </div>
+        </div>
+      </div>
+      <div class="opt-field">
         <label for="baseUrl">Confluence Base URL</label>
         <small>Auto-detected when you visit a Confluence page. Override here if needed.</small>
         <input type="text" id="baseUrl" class="opt-input" placeholder="https://confluence.yourcompany.com">

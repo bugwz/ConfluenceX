@@ -15,7 +15,27 @@
     }
   }
 
-  async function cfxFetch(url, options = {}) {
+  function buildAuthHeaders(auth = {}) {
+    const mode = auth.mode || 'cookie';
+
+    if (mode === 'token') {
+      const deployment = auth.deployment || 'cloud';
+
+      if (deployment !== 'cloud') {
+        throw new ConfluenceApiError('Only Confluence Cloud token auth is supported right now.', 400);
+      }
+      if (!auth.userEmail || !auth.apiToken) {
+        throw new ConfluenceApiError('Token mode requires Confluence email and API token.', 400);
+      }
+
+      const encoded = btoa(`${auth.userEmail}:${auth.apiToken}`);
+      return { Authorization: `Basic ${encoded}` };
+    }
+
+    return {};
+  }
+
+  async function cfxFetch(url, options = {}, auth = {}) {
     const defaultOptions = {
       credentials: 'include',
       headers: {
@@ -28,7 +48,11 @@
     const mergedOptions = {
       ...defaultOptions,
       ...options,
-      headers: { ...defaultOptions.headers, ...(options.headers || {}) },
+      headers: {
+        ...defaultOptions.headers,
+        ...buildAuthHeaders(auth),
+        ...(options.headers || {}),
+      },
     };
 
     const response = await fetch(url, mergedOptions);
@@ -53,17 +77,17 @@
   /**
    * GET /rest/api/content/{id}?expand=body.storage,version,ancestors,space,title
    */
-  async function getPageContent(baseUrl, pageId) {
+  async function getPageContent(baseUrl, pageId, auth) {
     const expand = 'body.storage,version,ancestors,space,title';
     const url = `${baseUrl}/rest/api/content/${pageId}?expand=${expand}`;
-    return cfxFetch(url);
+    return cfxFetch(url, {}, auth);
   }
 
   /**
    * PUT /rest/api/content/{id}
    * Updates page content. Version must be incremented.
    */
-  async function updatePageContent(baseUrl, pageId, title, bodyValue, versionNumber, ancestors) {
+  async function updatePageContent(baseUrl, pageId, title, bodyValue, versionNumber, ancestors, auth) {
     const url = `${baseUrl}/rest/api/content/${pageId}`;
     const payload = {
       version: {
@@ -87,16 +111,16 @@
     return cfxFetch(url, {
       method: 'PUT',
       body: JSON.stringify(payload),
-    });
+    }, auth);
   }
 
   /**
    * Move a page by changing its parent (ancestors).
    * Fetches the page first to get current version and body, then updates ancestors.
    */
-  async function movePage(baseUrl, pageId, newAncestorId) {
+  async function movePage(baseUrl, pageId, newAncestorId, auth) {
     // First fetch current page to get version, title, and body
-    const page = await getPageContent(baseUrl, pageId);
+    const page = await getPageContent(baseUrl, pageId, auth);
     const currentVersion = page.version.number;
     const title = page.title;
     const bodyValue = page.body.storage.value;
@@ -121,13 +145,13 @@
     return cfxFetch(url, {
       method: 'PUT',
       body: JSON.stringify(payload),
-    });
+    }, auth);
   }
 
   /**
    * GET /rest/api/content/search?cql=...
    */
-  async function searchPages(baseUrl, cql, limit = 20, start = 0) {
+  async function searchPages(baseUrl, cql, limit = 20, start = 0, auth) {
     const params = new URLSearchParams({
       cql,
       limit: String(limit),
@@ -135,35 +159,35 @@
       expand: 'space,ancestors',
     });
     const url = `${baseUrl}/rest/api/content/search?${params}`;
-    return cfxFetch(url);
+    return cfxFetch(url, {}, auth);
   }
 
   /**
    * GET /rest/api/content/{id}/child/page
    */
-  async function getChildPages(baseUrl, pageId, limit = 50, start = 0) {
+  async function getChildPages(baseUrl, pageId, limit = 50, start = 0, auth) {
     const params = new URLSearchParams({
       limit: String(limit),
       start: String(start),
       expand: 'ancestors',
     });
     const url = `${baseUrl}/rest/api/content/${pageId}/child/page?${params}`;
-    return cfxFetch(url);
+    return cfxFetch(url, {}, auth);
   }
 
   /**
    * GET /rest/api/space
    */
-  async function getSpaces(baseUrl, limit = 50, start = 0) {
+  async function getSpaces(baseUrl, limit = 50, start = 0, auth) {
     const params = new URLSearchParams({ limit: String(limit), start: String(start) });
     const url = `${baseUrl}/rest/api/space?${params}`;
-    return cfxFetch(url);
+    return cfxFetch(url, {}, auth);
   }
 
   /**
    * GET /rest/api/content?spaceKey=...&type=page (root pages of a space)
    */
-  async function getSpaceRootPages(baseUrl, spaceKey, limit = 50, start = 0) {
+  async function getSpaceRootPages(baseUrl, spaceKey, limit = 50, start = 0, auth) {
     const params = new URLSearchParams({
       spaceKey,
       depth: 'root',
@@ -173,7 +197,7 @@
       expand: 'ancestors',
     });
     const url = `${baseUrl}/rest/api/content?${params}`;
-    return cfxFetch(url);
+    return cfxFetch(url, {}, auth);
   }
 
   // Export to globalThis for service worker context

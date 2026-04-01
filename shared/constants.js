@@ -29,6 +29,11 @@
     DARK_MODE: 'cfx_dark_mode',           // boolean
     CONFLUENCE_BASE_URL: 'cfx_base_url',  // auto-detected or user override
     MAX_CONTENT_LENGTH: 'cfx_max_content_length',
+    // Confluence auth settings
+    CONFLUENCE_AUTH_MODE: 'cfx_confluence_auth_mode', // 'cookie' | 'token'
+    CONFLUENCE_DEPLOYMENT: 'cfx_confluence_deployment', // 'cloud' | 'dc'
+    CONFLUENCE_USER_EMAIL: 'cfx_confluence_user_email',
+    CONFLUENCE_API_TOKEN: 'cfx_confluence_api_token',
     // Sidebar state
     LAST_ACTIVE_TAB: 'cfx_last_active_tab',
   });
@@ -60,6 +65,8 @@
     SEARCH_LIMIT: 20,
     CHILD_PAGE_LIMIT: 50,
     HISTORY_MAX_PER_PAGE: 100,
+    CONFLUENCE_AUTH_MODE: 'cookie',
+    CONFLUENCE_DEPLOYMENT: 'cloud',
   });
 
   const DARK_MODE_CLASS = 'confluencex-dark';

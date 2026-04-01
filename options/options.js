@@ -66,6 +66,11 @@
     $('baseUrl').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL] || '';
     $('maxLen').value = settings[CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH] || CFX.DEFAULTS.MAX_CONTENT_LENGTH;
     $('darkMode').checked = settings[CFX.STORAGE_KEYS.DARK_MODE] || false;
+    $('authMode').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE] || CFX.DEFAULTS.CONFLUENCE_AUTH_MODE;
+    $('deployment').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] || CFX.DEFAULTS.CONFLUENCE_DEPLOYMENT;
+    $('confluenceEmail').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || '';
+    $('confluenceToken').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN] || '';
+    updateAuthFieldVisibility();
   }
 
   function showFeedback(text, ok) {
@@ -73,6 +78,15 @@
     el.textContent = text;
     el.style.color = ok ? '#00875a' : '#de350b';
     setTimeout(() => { el.textContent = ''; }, 3000);
+  }
+
+  function updateAuthFieldVisibility() {
+    const mode = $('authMode').value;
+    const tokenFields = $('tokenAuthFields');
+    const deployment = $('deployment');
+
+    tokenFields.style.display = mode === 'token' ? 'block' : 'none';
+    deployment.disabled = mode !== 'token';
   }
 
   $('provider').addEventListener('change', () => {
@@ -88,9 +102,32 @@
     $('toggleKey').textContent = isVisible ? 'Show' : 'Hide';
   });
 
+  $('toggleConfluenceToken').addEventListener('click', () => {
+    const input = $('confluenceToken');
+    const isVisible = input.type === 'text';
+    input.type = isVisible ? 'password' : 'text';
+    $('toggleConfluenceToken').textContent = isVisible ? 'Show' : 'Hide';
+  });
+
+  $('authMode').addEventListener('change', updateAuthFieldVisibility);
+
   $('saveBtn').addEventListener('click', async () => {
     $('saveBtn').disabled = true;
     try {
+      const authMode = $('authMode').value;
+      const deployment = $('deployment').value;
+      const confluenceEmail = $('confluenceEmail').value.trim();
+      const confluenceToken = $('confluenceToken').value.trim();
+
+      if (authMode === 'token') {
+        if (deployment !== 'cloud') {
+          throw new Error('Only Confluence Cloud token mode is currently supported');
+        }
+        if (!confluenceEmail || !confluenceToken) {
+          throw new Error('Confluence email and API token are required in token mode');
+        }
+      }
+
       const api = getApi();
       if (!api) throw new Error('Extension API unavailable');
       await api.storage.local.set({
@@ -101,6 +138,10 @@
         [CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]: $('baseUrl').value.trim(),
         [CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH]: parseInt($('maxLen').value, 10) || CFX.DEFAULTS.MAX_CONTENT_LENGTH,
         [CFX.STORAGE_KEYS.DARK_MODE]: $('darkMode').checked,
+        [CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE]: authMode,
+        [CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT]: deployment,
+        [CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL]: confluenceEmail,
+        [CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]: confluenceToken,
       });
       showFeedback('✓ Settings saved', true);
     } catch (err) {
