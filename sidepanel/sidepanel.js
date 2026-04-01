@@ -7,45 +7,6 @@
 
   let currentTab = 'chat';
   let pageContext = null;
-  let isAllowedSite = true;
-
-  function normalizeOrigin(urlLike) {
-    if (!urlLike || typeof urlLike !== 'string') return null;
-    const trimmed = urlLike.trim();
-    if (!trimmed) return null;
-    try {
-      return new URL(trimmed).origin;
-    } catch (e) {
-      // Accept bare host input like "confluence.example.com"
-      if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)) {
-        try {
-          return new URL(`https://${trimmed}`).origin;
-        } catch (e2) {
-          return null;
-        }
-      }
-      return null;
-    }
-  }
-
-  async function getAllowedOrigins() {
-    const keys = [
-      CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS,
-      CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL,
-    ];
-    const stored = await cfxApi.storage.local.get(keys);
-    let origins = Array.isArray(stored[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS])
-      ? stored[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]
-      : [];
-
-    if (origins.length === 0 && stored[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]) {
-      const migrated = normalizeOrigin(stored[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]);
-      if (migrated) {
-        origins = [migrated];
-      }
-    }
-    return [...new Set(origins.map(normalizeOrigin).filter(Boolean))];
-  }
 
   // ─── Tab Switching ──────────────────────────────────────────────────────────
 
@@ -90,15 +51,6 @@
       const tabs = await cfxApi.tabs.query({ active: true, currentWindow: true });
       if (!tabs || !tabs.length) return;
       const tab = tabs[0];
-      const tabOrigin = normalizeOrigin(tab.url || '');
-      const allowedOrigins = await getAllowedOrigins();
-      isAllowedSite = !!(tabOrigin && allowedOrigins.includes(tabOrigin));
-
-      if (!isAllowedSite) {
-        pageContext = null;
-        updatePageInfo(null);
-        return;
-      }
 
       const response = await cfxApi.tabs.sendMessage(tab.id, { type: MSG.GET_PAGE_CONTEXT });
       if (response && response.success && response.data) {
@@ -123,11 +75,6 @@
 
   function updatePageInfo(ctx) {
     const titleEl = document.getElementById('cfx-page-title');
-    if (!isAllowedSite) {
-      titleEl.textContent = 'Side panel disabled for this site';
-      titleEl.title = '';
-      return;
-    }
     if (!ctx || !ctx.isConfluencePage) {
       titleEl.textContent = 'Not a Confluence page';
       return;
