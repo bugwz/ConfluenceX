@@ -92,7 +92,6 @@
     $('model').value = settings[CFX.STORAGE_KEYS.AI_MODEL] || PROVIDERS[provider]?.model || '';
     $('baseUrl').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL] || '';
     $('maxLen').value = settings[CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH] || CFX.DEFAULTS.MAX_CONTENT_LENGTH;
-    $('darkMode').checked = settings[CFX.STORAGE_KEYS.DARK_MODE] || false;
     $('copyMarkdown').checked = settings[CFX.STORAGE_KEYS.ENABLE_COPY_MARKDOWN]
       ?? CFX.DEFAULTS.ENABLE_COPY_MARKDOWN;
     $('themeButton').checked = settings[CFX.STORAGE_KEYS.ENABLE_THEME_BUTTON]
@@ -188,7 +187,6 @@
         [CFX.STORAGE_KEYS.AI_MODEL]: $('model').value.trim(),
         [CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]: $('baseUrl').value.trim(),
         [CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH]: parseInt($('maxLen').value, 10) || CFX.DEFAULTS.MAX_CONTENT_LENGTH,
-        [CFX.STORAGE_KEYS.DARK_MODE]: $('darkMode').checked,
         [CFX.STORAGE_KEYS.ENABLE_COPY_MARKDOWN]: $('copyMarkdown').checked,
         [CFX.STORAGE_KEYS.ENABLE_THEME_BUTTON]: $('themeButton').checked,
         [CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE]: authMode,

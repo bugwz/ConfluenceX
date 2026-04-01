@@ -70,10 +70,7 @@
     document.body.appendChild(group);
 
     scrollHandler = debounce(() => {
-      const shouldShow = window.scrollY > SHOW_THRESHOLD;
-      group.style.opacity = shouldShow ? '1' : '0';
-      group.style.transform = shouldShow ? 'translateY(0)' : 'translateY(10px)';
-      group.style.pointerEvents = shouldShow ? 'auto' : 'none';
+      updateGroupVisibility();
     }, 100);
 
     window.addEventListener('scroll', scrollHandler, { passive: true });
@@ -141,9 +138,11 @@
       setCopyButtonVisible(copyMarkdownEnabled);
       setThemeButtonVisible(themeButtonEnabled);
       renderThemeButtonState(darkModeEnabled);
+      updateGroupVisibility();
     } catch (e) {
       setCopyButtonVisible(false);
       setThemeButtonVisible(false);
+      updateGroupVisibility();
     }
   }
 
@@ -157,12 +156,14 @@
         const value = changes[CFX.STORAGE_KEYS.ENABLE_COPY_MARKDOWN].newValue;
         copyMarkdownEnabled = value ?? CFX.DEFAULTS.ENABLE_COPY_MARKDOWN;
         setCopyButtonVisible(copyMarkdownEnabled);
+        updateGroupVisibility();
       }
 
       if (changes[CFX.STORAGE_KEYS.ENABLE_THEME_BUTTON]) {
         const value = changes[CFX.STORAGE_KEYS.ENABLE_THEME_BUTTON].newValue;
         themeButtonEnabled = value ?? CFX.DEFAULTS.ENABLE_THEME_BUTTON;
         setThemeButtonVisible(themeButtonEnabled);
+        updateGroupVisibility();
       }
 
       if (changes[CFX.STORAGE_KEYS.DARK_MODE]) {
@@ -189,6 +190,15 @@
   function setThemeButtonVisible(visible) {
     if (!themeButton) return;
     themeButton.style.display = visible ? 'flex' : 'none';
+  }
+
+  function updateGroupVisibility() {
+    if (!group) return;
+    const hasExtraButtons = copyMarkdownEnabled || themeButtonEnabled;
+    const shouldShow = hasExtraButtons || window.scrollY > SHOW_THRESHOLD;
+    group.style.opacity = shouldShow ? '1' : '0';
+    group.style.transform = shouldShow ? 'translateY(0)' : 'translateY(10px)';
+    group.style.pointerEvents = shouldShow ? 'auto' : 'none';
   }
 
   function renderThemeButtonState(isDark) {

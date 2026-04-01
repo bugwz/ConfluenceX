@@ -320,43 +320,6 @@
     maxLenField.appendChild(maxLenInput);
     form.appendChild(maxLenField);
 
-    // ── Dark Mode Toggle ──
-    const darkModeRow = document.createElement('div');
-    darkModeRow.className = 'cfx-toggle-row';
-    const darkModeInfo = document.createElement('div');
-    darkModeInfo.innerHTML = `
-      <div class="cfx-toggle-label">Dark Mode</div>
-      <div class="cfx-toggle-desc">Apply dark theme to Confluence pages</div>
-    `;
-    const darkModeToggle = document.createElement('label');
-    darkModeToggle.className = 'cfx-toggle';
-    const darkModeCheckbox = document.createElement('input');
-    darkModeCheckbox.type = 'checkbox';
-    darkModeCheckbox.checked = settings[CFX.STORAGE_KEYS.DARK_MODE] || false;
-    darkModeCheckbox.addEventListener('change', async () => {
-      const enabled = darkModeCheckbox.checked;
-      const api = getApi();
-      if (!api) throw new Error('Extension API unavailable');
-      await api.storage.local.set({ [CFX.STORAGE_KEYS.DARK_MODE]: enabled });
-      // Notify content script
-      try {
-        const tabs = await api.tabs.query({ active: true, currentWindow: true });
-        if (tabs && tabs.length > 0) {
-          await api.tabs.sendMessage(tabs[0].id, {
-            type: MSG.TOGGLE_DARK_MODE,
-            payload: { enable: enabled },
-          });
-        }
-      } catch (e) { /* ignore */ }
-    });
-    const darkModeSlider = document.createElement('span');
-    darkModeSlider.className = 'cfx-toggle-slider';
-    darkModeToggle.appendChild(darkModeCheckbox);
-    darkModeToggle.appendChild(darkModeSlider);
-    darkModeRow.appendChild(darkModeInfo);
-    darkModeRow.appendChild(darkModeToggle);
-    form.appendChild(darkModeRow);
-
     // ── Copy Page as Markdown Toggle ──
     const copyMdRow = document.createElement('div');
     copyMdRow.className = 'cfx-toggle-row';
