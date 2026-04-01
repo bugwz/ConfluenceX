@@ -1,0 +1,29 @@
+{
+  "name": "confluencex",
+  "version": "0.0.0",
+  "description": "AI-powered browser extension for Confluence Server 7.x — AI chat editing, page move, dark mode, and more.",
+  "homepage": "https://github.com/confluencex/confluencex",
+  "license": "MIT",
+  "private": true,
+  "keywords": [
+    "confluence",
+    "browser-extension",
+    "chrome-extension",
+    "firefox-extension",
+    "ai",
+    "productivity"
+  ],
+  "engines": {
+    "chrome": ">=114",
+    "firefox": ">=109"
+  },
+  "scripts": {
+    "build": "bash build.sh all",
+    "build:chrome": "bash build.sh chrome",
+    "build:firefox": "bash build.sh firefox"
+  },
+  "extensionManifestVersion": {
+    "chrome": 3,
+    "firefox": 2
+  }
+}
