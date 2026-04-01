@@ -47,18 +47,8 @@ jobs:
 
           SHORT_HASH=$(git rev-parse --short=7 HEAD)
 
-          # Sanitize commit subject: lowercase, keep alphanumeric/dot/hyphen,
-          # collapse multiple hyphens, strip leading/trailing hyphens, max 40 chars
-          RAW_MSG=$(git log -1 --pretty=format:"%s")
-          SHORT_MSG=$(echo "${RAW_MSG}" \
-            | tr '[:upper:]' '[:lower:]' \
-            | sed 's/[^a-z0-9._-]/-/g' \
-            | sed 's/-\{2,\}/-/g' \
-            | sed 's/^-//;s/-$//' \
-            | cut -c1-40)
-
           # Full artifact base name (no extension, no platform suffix yet)
-          ARTIFACT_BASE="ConfluenceX_${VERSION}-${DISTANCE}-g${SHORT_HASH}-${SHORT_MSG}"
+          ARTIFACT_BASE="ConfluenceX_${VERSION}-${DISTANCE}-g${SHORT_HASH}"
 
           # Release tag (unique per commit)
           RELEASE_TAG="build/${VERSION}-${DISTANCE}-g${SHORT_HASH}"
@@ -66,7 +56,6 @@ jobs:
           echo "version=${VERSION}"           >> "$GITHUB_OUTPUT"
           echo "distance=${DISTANCE}"         >> "$GITHUB_OUTPUT"
           echo "short_hash=${SHORT_HASH}"     >> "$GITHUB_OUTPUT"
-          echo "short_msg=${SHORT_MSG}"       >> "$GITHUB_OUTPUT"
           echo "artifact_base=${ARTIFACT_BASE}" >> "$GITHUB_OUTPUT"
           echo "release_tag=${RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
 
@@ -74,7 +63,6 @@ jobs:
           echo "version      : ${VERSION}"
           echo "distance     : ${DISTANCE}"
           echo "short_hash   : ${SHORT_HASH}"
-          echo "short_msg    : ${SHORT_MSG}"
           echo "artifact_base: ${ARTIFACT_BASE}"
           echo "release_tag  : ${RELEASE_TAG}"
 
