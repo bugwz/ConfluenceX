@@ -194,8 +194,13 @@
 
   function updateGroupVisibility() {
     if (!group) return;
+    const shouldShowScrollButton = window.scrollY > SHOW_THRESHOLD;
+    if (scrollButton) {
+      scrollButton.style.display = shouldShowScrollButton ? 'flex' : 'none';
+    }
+
     const hasExtraButtons = copyMarkdownEnabled || themeButtonEnabled;
-    const shouldShow = hasExtraButtons || window.scrollY > SHOW_THRESHOLD;
+    const shouldShow = hasExtraButtons || shouldShowScrollButton;
     group.style.opacity = shouldShow ? '1' : '0';
     group.style.transform = shouldShow ? 'translateY(0)' : 'translateY(10px)';
     group.style.pointerEvents = shouldShow ? 'auto' : 'none';
