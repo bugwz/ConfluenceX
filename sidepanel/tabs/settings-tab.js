@@ -357,6 +357,50 @@
     darkModeRow.appendChild(darkModeToggle);
     form.appendChild(darkModeRow);
 
+    // ── Copy Page as Markdown Toggle ──
+    const copyMdRow = document.createElement('div');
+    copyMdRow.className = 'cfx-toggle-row';
+    const copyMdInfo = document.createElement('div');
+    copyMdInfo.innerHTML = `
+      <div class="cfx-toggle-label">Copy Page as Markdown</div>
+      <div class="cfx-toggle-desc">Show a copy button near the scroll-to-top control on Confluence pages</div>
+    `;
+    const copyMdToggle = document.createElement('label');
+    copyMdToggle.className = 'cfx-toggle';
+    const copyMdCheckbox = document.createElement('input');
+    copyMdCheckbox.type = 'checkbox';
+    copyMdCheckbox.checked = settings[CFX.STORAGE_KEYS.ENABLE_COPY_MARKDOWN]
+      ?? CFX.DEFAULTS.ENABLE_COPY_MARKDOWN;
+    const copyMdSlider = document.createElement('span');
+    copyMdSlider.className = 'cfx-toggle-slider';
+    copyMdToggle.appendChild(copyMdCheckbox);
+    copyMdToggle.appendChild(copyMdSlider);
+    copyMdRow.appendChild(copyMdInfo);
+    copyMdRow.appendChild(copyMdToggle);
+    form.appendChild(copyMdRow);
+
+    // ── Theme Button Toggle ──
+    const themeBtnRow = document.createElement('div');
+    themeBtnRow.className = 'cfx-toggle-row';
+    const themeBtnInfo = document.createElement('div');
+    themeBtnInfo.innerHTML = `
+      <div class="cfx-toggle-label">Theme Color Button</div>
+      <div class="cfx-toggle-desc">Show a theme button in the floating tools near scroll-to-top</div>
+    `;
+    const themeBtnToggle = document.createElement('label');
+    themeBtnToggle.className = 'cfx-toggle';
+    const themeBtnCheckbox = document.createElement('input');
+    themeBtnCheckbox.type = 'checkbox';
+    themeBtnCheckbox.checked = settings[CFX.STORAGE_KEYS.ENABLE_THEME_BUTTON]
+      ?? CFX.DEFAULTS.ENABLE_THEME_BUTTON;
+    const themeBtnSlider = document.createElement('span');
+    themeBtnSlider.className = 'cfx-toggle-slider';
+    themeBtnToggle.appendChild(themeBtnCheckbox);
+    themeBtnToggle.appendChild(themeBtnSlider);
+    themeBtnRow.appendChild(themeBtnInfo);
+    themeBtnRow.appendChild(themeBtnToggle);
+    form.appendChild(themeBtnRow);
+
     // ── Save Button ──
     const saveRow = document.createElement('div');
     saveRow.style.cssText = 'margin-top:16px;display:flex;gap:8px;align-items:center;';
@@ -382,6 +426,8 @@
         [CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]: parseAllowedOrigins(allowedOriginsInput.value),
         [CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]: baseUrlInput.value.trim(),
         [CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH]: parseInt(maxLenInput.value, 10) || CFX.DEFAULTS.MAX_CONTENT_LENGTH,
+        [CFX.STORAGE_KEYS.ENABLE_COPY_MARKDOWN]: copyMdCheckbox.checked,
+        [CFX.STORAGE_KEYS.ENABLE_THEME_BUTTON]: themeBtnCheckbox.checked,
       };
 
       try {
