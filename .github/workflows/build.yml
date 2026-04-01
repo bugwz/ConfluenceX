@@ -1,0 +1,193 @@
+name: Build & Release
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build packages and create release
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout (full history required for git describe) ──────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ── Compute artifact name ─────────────────────────────────────────────
+      #
+      # Naming convention:
+      #   ConfluenceX_{version}-{distance}-g{hash}-{short-msg}_{platform}.{ext}
+      #
+      # - version   : from package.json  (e.g. 0.0.0)
+      # - distance  : commits since last tag; if no tags, commits since the
+      #               very first commit (1-based, includes the current commit)
+      # - hash      : 7-char short SHA of HEAD
+      # - short-msg : first ~40 chars of commit subject, sanitized for filenames
+      #
+      - name: Compute version info
+        id: ver
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+
+          # Distance from last tag, or from initial commit when no tags exist
+          if git describe --tags --abbrev=0 2>/dev/null; then
+            LAST_TAG=$(git describe --tags --abbrev=0)
+            DISTANCE=$(git rev-list "${LAST_TAG}..HEAD" --count)
+          else
+            # No tags yet: distance = total commit count (1-based)
+            DISTANCE=$(git rev-list HEAD --count)
+          fi
+
+          SHORT_HASH=$(git rev-parse --short=7 HEAD)
+
+          # Sanitize commit subject: lowercase, keep alphanumeric/dot/hyphen,
+          # collapse multiple hyphens, strip leading/trailing hyphens, max 40 chars
+          RAW_MSG=$(git log -1 --pretty=format:"%s")
+          SHORT_MSG=$(echo "${RAW_MSG}" \
+            | tr '[:upper:]' '[:lower:]' \
+            | sed 's/[^a-z0-9._-]/-/g' \
+            | sed 's/-\{2,\}/-/g' \
+            | sed 's/^-//;s/-$//' \
+            | cut -c1-40)
+
+          # Full artifact base name (no extension, no platform suffix yet)
+          ARTIFACT_BASE="ConfluenceX_${VERSION}-${DISTANCE}-g${SHORT_HASH}-${SHORT_MSG}"
+
+          # Release tag (unique per commit)
+          RELEASE_TAG="build/${VERSION}-${DISTANCE}-g${SHORT_HASH}"
+
+          echo "version=${VERSION}"           >> "$GITHUB_OUTPUT"
+          echo "distance=${DISTANCE}"         >> "$GITHUB_OUTPUT"
+          echo "short_hash=${SHORT_HASH}"     >> "$GITHUB_OUTPUT"
+          echo "short_msg=${SHORT_MSG}"       >> "$GITHUB_OUTPUT"
+          echo "artifact_base=${ARTIFACT_BASE}" >> "$GITHUB_OUTPUT"
+          echo "release_tag=${RELEASE_TAG}"   >> "$GITHUB_OUTPUT"
+
+          echo "### Version info"
+          echo "version      : ${VERSION}"
+          echo "distance     : ${DISTANCE}"
+          echo "short_hash   : ${SHORT_HASH}"
+          echo "short_msg    : ${SHORT_MSG}"
+          echo "artifact_base: ${ARTIFACT_BASE}"
+          echo "release_tag  : ${RELEASE_TAG}"
+
+      # ── Build Chrome & Firefox zips ───────────────────────────────────────
+      - name: Build
+        run: bash build.sh all
+
+      # ── Rename zips and produce tar.gz / xpi ─────────────────────────────
+      - name: Package artifacts
+        env:
+          BASE: ${{ steps.ver.outputs.artifact_base }}
+        run: |
+          # ── Chrome ──
+          # zip (rename)
+          mv confluencex-chrome.zip "${BASE}_chrome.zip"
+
+          # tar.gz (repack from zip contents)
+          mkdir -p /tmp/chrome
+          unzip -q "${BASE}_chrome.zip" -d /tmp/chrome
+          tar -czf "${BASE}_chrome.tar.gz" -C /tmp/chrome .
+
+          # ── Firefox ──
+          # zip (rename)
+          mv confluencex-firefox.zip "${BASE}_firefox.zip"
+
+          # xpi (Firefox signed package — structurally identical to zip)
+          cp "${BASE}_firefox.zip" "${BASE}_firefox.xpi"
+
+          # tar.gz
+          mkdir -p /tmp/firefox
+          unzip -q "${BASE}_firefox.zip" -d /tmp/firefox
+          tar -czf "${BASE}_firefox.tar.gz" -C /tmp/firefox .
+
+          echo "--- Artifacts ---"
+          ls -lh "${BASE}"_*
+
+      # ── SHA-256 checksums ─────────────────────────────────────────────────
+      - name: Compute SHA-256
+        env:
+          BASE: ${{ steps.ver.outputs.artifact_base }}
+        run: |
+          sha256sum \
+            "${BASE}_chrome.zip" \
+            "${BASE}_chrome.tar.gz" \
+            "${BASE}_firefox.zip" \
+            "${BASE}_firefox.xpi" \
+            "${BASE}_firefox.tar.gz" \
+            > checksums.txt
+          echo "--- SHA-256 ---"
+          cat checksums.txt
+
+      # ── Build release notes ───────────────────────────────────────────────
+      - name: Build release notes
+        env:
+          BASE:      ${{ steps.ver.outputs.artifact_base }}
+          VERSION:   ${{ steps.ver.outputs.version }}
+          DISTANCE:  ${{ steps.ver.outputs.distance }}
+          SHORT_HASH: ${{ steps.ver.outputs.short_hash }}
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          COMMIT_BODY=$(git log -1 --pretty=format:"%b")
+          COMMIT_AUTHOR=$(git log -1 --pretty=format:"%an")
+          COMMIT_DATE=$(git log -1 --pretty=format:"%ci")
+
+          cat > release_notes.md << EOF
+          ## ${BASE}
+
+          | Field | Value |
+          |-------|-------|
+          | Version | \`${VERSION}\` |
+          | Commits since last tag | \`${DISTANCE}\` |
+          | Commit | \`${SHORT_HASH}\` |
+          | Author | ${COMMIT_AUTHOR} |
+          | Date | ${COMMIT_DATE} |
+
+          **${COMMIT_MSG}**
+          EOF
+
+          if [ -n "${COMMIT_BODY}" ]; then
+            echo "" >> release_notes.md
+            echo "${COMMIT_BODY}" >> release_notes.md
+          fi
+
+          cat >> release_notes.md << 'EOF'
+
+          ---
+
+          ### SHA-256 Checksums
+          EOF
+
+          while IFS= read -r line; do
+            HASH=$(echo "$line" | awk '{print $1}')
+            FILE=$(echo "$line" | awk '{print $2}')
+            echo "- \`${FILE}\`  " >> release_notes.md
+            echo "  \`sha256:${HASH}\`" >> release_notes.md
+          done < checksums.txt
+
+          echo "--- Release notes ---"
+          cat release_notes.md
+
+      # ── Create GitHub Release ─────────────────────────────────────────────
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.ver.outputs.release_tag }}
+          name: ${{ steps.ver.outputs.artifact_base }}
+          body_path: release_notes.md
+          prerelease: true
+          make_latest: false
+          files: |
+            ${{ steps.ver.outputs.artifact_base }}_chrome.zip
+            ${{ steps.ver.outputs.artifact_base }}_chrome.tar.gz
+            ${{ steps.ver.outputs.artifact_base }}_firefox.zip
+            ${{ steps.ver.outputs.artifact_base }}_firefox.xpi
+            ${{ steps.ver.outputs.artifact_base }}_firefox.tar.gz
+            checksums.txt
