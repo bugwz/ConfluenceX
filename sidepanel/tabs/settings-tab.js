@@ -209,13 +209,13 @@
     confluenceEmailField.appendChild(confluenceEmailInput);
     form.appendChild(confluenceEmailField);
 
-    const confluenceTokenField = createField('Confluence API Token');
+    const confluenceTokenField = createField('Confluence Api Token');
     const confluenceTokenWrapper = document.createElement('div');
     confluenceTokenWrapper.className = 'cfx-password-wrapper';
     const confluenceTokenInput = document.createElement('input');
     confluenceTokenInput.type = 'password';
     confluenceTokenInput.className = 'cfx-input';
-    confluenceTokenInput.placeholder = 'Confluence API token';
+    confluenceTokenInput.placeholder = 'Confluence Api token';
     confluenceTokenInput.value = settings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN] || '';
     const confluenceTokenEye = document.createElement('button');
     confluenceTokenEye.className = 'cfx-password-toggle';
