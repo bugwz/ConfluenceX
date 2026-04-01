@@ -34,8 +34,6 @@
     // Notify the tab module
     if (tabName === 'chat' && window.cfxChatTab) {
       window.cfxChatTab.onActivate(pageContext);
-    } else if (tabName === 'move' && window.cfxMoveTab) {
-      window.cfxMoveTab.onActivate(pageContext);
     } else if (tabName === 'settings' && window.cfxSettingsTab) {
       window.cfxSettingsTab.onActivate(pageContext);
     }
@@ -92,7 +90,7 @@
     try {
       const stored = await cfxApi.storage.local.get([CFX.STORAGE_KEYS.LAST_ACTIVE_TAB]);
       const lastTab = stored[CFX.STORAGE_KEYS.LAST_ACTIVE_TAB];
-      if (lastTab && ['chat', 'move', 'settings'].includes(lastTab)) {
+      if (lastTab && ['chat', 'settings'].includes(lastTab)) {
         switchTab(lastTab);
       }
     } catch (e) { /* ignore */ }
@@ -101,7 +99,6 @@
 
     // Initialize tab modules with context
     if (window.cfxChatTab) window.cfxChatTab.init('tab-chat', pageContext);
-    if (window.cfxMoveTab) window.cfxMoveTab.init('tab-move', pageContext);
     if (window.cfxSettingsTab) window.cfxSettingsTab.init('tab-settings', pageContext);
 
     // Activate default tab
