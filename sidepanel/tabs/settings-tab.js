@@ -5,9 +5,70 @@
 (function () {
   'use strict';
 
-  const api = (typeof globalThis !== 'undefined' && globalThis.cfxApi)
-    || (typeof window !== 'undefined' && window.cfxApi)
-    || null;
+  function createNativeApi() {
+    if (typeof browser !== 'undefined' && browser?.storage?.local && browser?.runtime && browser?.tabs) {
+      return {
+        storage: { local: browser.storage.local },
+        runtime: { sendMessage: (msg) => browser.runtime.sendMessage(msg) },
+        tabs: {
+          query: (opts) => browser.tabs.query(opts),
+          sendMessage: (tabId, msg) => browser.tabs.sendMessage(tabId, msg),
+        },
+      };
+    }
+
+    if (typeof chrome !== 'undefined' && chrome?.storage?.local && chrome?.runtime && chrome?.tabs) {
+      return {
+        storage: {
+          local: {
+            get: (keys) => new Promise((resolve, reject) => {
+              chrome.storage.local.get(keys, (result) => {
+                if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                else resolve(result);
+              });
+            }),
+            set: (items) => new Promise((resolve, reject) => {
+              chrome.storage.local.set(items, () => {
+                if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                else resolve();
+              });
+            }),
+          },
+        },
+        runtime: {
+          sendMessage: (msg) => new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(msg, (response) => {
+              if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+              else resolve(response);
+            });
+          }),
+        },
+        tabs: {
+          query: (opts) => new Promise((resolve, reject) => {
+            chrome.tabs.query(opts, (tabs) => {
+              if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+              else resolve(tabs);
+            });
+          }),
+          sendMessage: (tabId, msg) => new Promise((resolve, reject) => {
+            chrome.tabs.sendMessage(tabId, msg, (response) => {
+              if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+              else resolve(response);
+            });
+          }),
+        },
+      };
+    }
+
+    return null;
+  }
+
+  function getApi() {
+    return (typeof globalThis !== 'undefined' && globalThis.cfxApi)
+      || (typeof window !== 'undefined' && window.cfxApi)
+      || (typeof cfxApi !== 'undefined' ? cfxApi : null)
+      || createNativeApi();
+  }
 
   let container = null;
   let pageContext = null;
@@ -34,6 +95,7 @@
     const allKeys = Object.values(CFX.STORAGE_KEYS);
     let settings = {};
     try {
+      const api = getApi();
       if (!api) throw new Error('Extension API unavailable');
       settings = await api.storage.local.get(allKeys);
     } catch (e) { /* use defaults */ }
@@ -146,6 +208,7 @@
     darkModeCheckbox.checked = settings[CFX.STORAGE_KEYS.DARK_MODE] || false;
     darkModeCheckbox.addEventListener('change', async () => {
       const enabled = darkModeCheckbox.checked;
+      const api = getApi();
       if (!api) throw new Error('Extension API unavailable');
       await api.storage.local.set({ [CFX.STORAGE_KEYS.DARK_MODE]: enabled });
       // Notify content script
@@ -190,6 +253,7 @@
       };
 
       try {
+        const api = getApi();
         if (!api) throw new Error('Extension API unavailable');
         await api.storage.local.set(newSettings);
         feedbackEl.textContent = '✓ Saved';

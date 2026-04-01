@@ -1,9 +1,52 @@
 (function () {
   'use strict';
 
-  const api = (typeof globalThis !== 'undefined' && globalThis.cfxApi)
-    || (typeof window !== 'undefined' && window.cfxApi)
-    || null;
+  function createNativeApi() {
+    if (typeof browser !== 'undefined' && browser?.storage?.local && browser?.runtime) {
+      return {
+        storage: { local: browser.storage.local },
+        runtime: { sendMessage: (msg) => browser.runtime.sendMessage(msg) },
+      };
+    }
+
+    if (typeof chrome !== 'undefined' && chrome?.storage?.local && chrome?.runtime) {
+      return {
+        storage: {
+          local: {
+            get: (keys) => new Promise((resolve, reject) => {
+              chrome.storage.local.get(keys, (result) => {
+                if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                else resolve(result);
+              });
+            }),
+            set: (items) => new Promise((resolve, reject) => {
+              chrome.storage.local.set(items, () => {
+                if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+                else resolve();
+              });
+            }),
+          },
+        },
+        runtime: {
+          sendMessage: (msg) => new Promise((resolve, reject) => {
+            chrome.runtime.sendMessage(msg, (response) => {
+              if (chrome.runtime.lastError) reject(chrome.runtime.lastError);
+              else resolve(response);
+            });
+          }),
+        },
+      };
+    }
+
+    return null;
+  }
+
+  function getApi() {
+    return (typeof globalThis !== 'undefined' && globalThis.cfxApi)
+      || (typeof window !== 'undefined' && window.cfxApi)
+      || (typeof cfxApi !== 'undefined' ? cfxApi : null)
+      || createNativeApi();
+  }
 
   const PROVIDERS = CFX.DEFAULTS.AI_PROVIDERS;
 
@@ -11,6 +54,7 @@
 
   async function load() {
     const keys = Object.values(CFX.STORAGE_KEYS);
+    const api = getApi();
     if (!api) throw new Error('Extension API unavailable');
     const settings = await api.storage.local.get(keys);
 
@@ -47,6 +91,7 @@
   $('saveBtn').addEventListener('click', async () => {
     $('saveBtn').disabled = true;
     try {
+      const api = getApi();
       if (!api) throw new Error('Extension API unavailable');
       await api.storage.local.set({
         [CFX.STORAGE_KEYS.AI_PROVIDER]: $('provider').value,
@@ -68,6 +113,7 @@
     if (!confirm('This will permanently delete all edit history stored locally. Continue?')) return;
     try {
       // Clear IndexedDB by sending message to background
+      const api = getApi();
       if (!api) throw new Error('Extension API unavailable');
       await api.runtime.sendMessage({ type: 'CLEAR_ALL_HISTORY', payload: {} });
       showFeedback('✓ History cleared', true);
