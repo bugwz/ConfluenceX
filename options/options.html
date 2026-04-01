@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConfluenceX Options</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="opt-container">
+    <header class="opt-header">
+      <h1>ConfluenceX Settings</h1>
+      <p>Configure your AI provider and preferences.</p>
+    </header>
+
+    <section class="opt-section">
+      <h2>AI Provider</h2>
+      <div class="opt-field">
+        <label for="provider">Provider</label>
+        <select id="provider" class="opt-select">
+          <option value="openai">OpenAI (ChatGPT)</option>
+          <option value="claude">Anthropic Claude</option>
+          <option value="custom">Custom (OpenAI-compatible)</option>
+        </select>
+      </div>
+      <div class="opt-field">
+        <label for="endpoint">API Endpoint</label>
+        <input type="text" id="endpoint" class="opt-input" placeholder="https://api.openai.com/v1/chat/completions">
+      </div>
+      <div class="opt-field">
+        <label for="apikey">API Key</label>
+        <div class="opt-password-wrap">
+          <input type="password" id="apikey" class="opt-input" placeholder="sk-...">
+          <button id="toggleKey" type="button">Show</button>
+        </div>
+      </div>
+      <div class="opt-field">
+        <label for="model">Model</label>
+        <input type="text" id="model" class="opt-input" placeholder="gpt-4o">
+      </div>
+    </section>
+
+    <section class="opt-section">
+      <h2>Confluence</h2>
+      <div class="opt-field">
+        <label for="baseUrl">Confluence Base URL</label>
+        <small>Auto-detected when you visit a Confluence page. Override here if needed.</small>
+        <input type="text" id="baseUrl" class="opt-input" placeholder="https://confluence.yourcompany.com">
+      </div>
+      <div class="opt-field">
+        <label for="maxLen">Max Content Length (chars)</label>
+        <small>Maximum characters of page content sent to AI. Longer content will be truncated.</small>
+        <input type="number" id="maxLen" class="opt-input" min="1000" max="200000" value="30000">
+      </div>
+    </section>
+
+    <section class="opt-section">
+      <h2>Appearance</h2>
+      <div class="opt-toggle-row">
+        <div>
+          <div class="opt-toggle-label">Dark Mode</div>
+          <small>Apply dark theme to Confluence pages</small>
+        </div>
+        <label class="opt-toggle">
+          <input type="checkbox" id="darkMode">
+          <span class="opt-toggle-slider"></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="opt-section">
+      <h2>Edit History</h2>
+      <p style="font-size:13px;color:#5e6c84;margin-bottom:12px;">
+        Edit history is stored locally in your browser. It is not synced across devices.
+      </p>
+      <button id="clearHistory" class="opt-btn opt-btn-danger">Clear All Edit History</button>
+    </section>
+
+    <div class="opt-actions">
+      <button id="saveBtn" class="opt-btn opt-btn-primary">Save Settings</button>
+      <span id="feedback"></span>
+    </div>
+  </div>
+
+  <script src="../shared/browser-polyfill.js"></script>
+  <script src="../shared/constants.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

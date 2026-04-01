@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ConfluenceX</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <!-- Header -->
+  <div id="cfx-header">
+    <div id="cfx-logo">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <polyline points="10 9 9 9 8 9"/>
+      </svg>
+      <span>ConfluenceX</span>
+    </div>
+    <div id="cfx-page-info">
+      <span id="cfx-page-title" title="">—</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div id="cfx-tabs">
+    <button class="cfx-tab active" data-tab="chat">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+      </svg>
+      AI Chat
+    </button>
+    <button class="cfx-tab" data-tab="move">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polyline points="5 9 2 12 5 15"/>
+        <polyline points="9 5 12 2 15 5"/>
+        <line x1="2" y1="12" x2="22" y2="12"/>
+        <line x1="12" y1="2" x2="12" y2="22"/>
+      </svg>
+      Move
+    </button>
+    <button class="cfx-tab" data-tab="settings">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="3"/>
+        <path d="M19.07 4.93a10 10 0 0 1 1.41 13.46l-1.41-1.41M4.93 19.07A10 10 0 0 1 3.52 5.61l1.41 1.41"/>
+        <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+      </svg>
+      Settings
+    </button>
+  </div>
+
+  <!-- Tab content panels -->
+  <div id="cfx-content">
+    <div id="tab-chat" class="cfx-tab-panel active"></div>
+    <div id="tab-move" class="cfx-tab-panel"></div>
+    <div id="tab-settings" class="cfx-tab-panel"></div>
+  </div>
+
+  <!-- Scripts: shared first, then tab modules -->
+  <script src="../shared/browser-polyfill.js"></script>
+  <script src="../shared/constants.js"></script>
+  <script src="../shared/message-types.js"></script>
+  <script src="../shared/xml-utils.js"></script>
+  <script src="components/chat-message.js"></script>
+  <script src="components/diff-viewer.js"></script>
+  <script src="components/history-list.js"></script>
+  <script src="components/search-box.js"></script>
+  <script src="components/page-tree.js"></script>
+  <script src="tabs/chat-tab.js"></script>
+  <script src="tabs/move-tab.js"></script>
+  <script src="tabs/settings-tab.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>

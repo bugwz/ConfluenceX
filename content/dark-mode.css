@@ -1,0 +1,375 @@
+/**
+ * dark-mode.css
+ * Dark mode theme for Confluence Server 7.13.7
+ * Applied when body has class "confluencex-dark"
+ */
+
+/* ─── CSS Custom Properties ─────────────────────────────────────────────── */
+body.confluencex-dark {
+  --cfx-dk-bg: #1e1e2e !important;
+  --cfx-dk-bg2: #252535 !important;
+  --cfx-dk-bg3: #2d2d3f !important;
+  --cfx-dk-surface: #313145 !important;
+  --cfx-dk-text: #cdd6f4 !important;
+  --cfx-dk-text2: #a6adc8 !important;
+  --cfx-dk-text3: #7f849c !important;
+  --cfx-dk-border: #45475a !important;
+  --cfx-dk-link: #89b4fa !important;
+  --cfx-dk-code-bg: #181825 !important;
+  --cfx-dk-header: #11111b !important;
+  --cfx-dk-sidebar: #181825 !important;
+  --cfx-dk-blue: #89b4fa !important;
+  --cfx-dk-green: #a6e3a1 !important;
+  --cfx-dk-red: #f38ba8 !important;
+  --cfx-dk-yellow: #f9e2af !important;
+  --cfx-dk-teal: #94e2d5 !important;
+}
+
+/* ─── Base Layout ────────────────────────────────────────────────────────── */
+body.confluencex-dark,
+body.confluencex-dark #full-height-container,
+body.confluencex-dark #page,
+body.confluencex-dark #content,
+body.confluencex-dark #main,
+body.confluencex-dark #main-content,
+body.confluencex-dark #content-body,
+body.confluencex-dark .wiki-content,
+body.confluencex-dark .view {
+  background-color: var(--cfx-dk-bg) !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* ─── Header ─────────────────────────────────────────────────────────────── */
+body.confluencex-dark #header,
+body.confluencex-dark .aui-header,
+body.confluencex-dark #confluence-ui > header,
+body.confluencex-dark [data-testid="global-navigation"] {
+  background-color: var(--cfx-dk-header) !important;
+  border-bottom-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark .aui-header a,
+body.confluencex-dark #header a {
+  color: var(--cfx-dk-text2) !important;
+}
+
+/* ─── Sidebar / Navigation ───────────────────────────────────────────────── */
+body.confluencex-dark #splitter-sidebar,
+body.confluencex-dark .acs-side-bar,
+body.confluencex-dark #sidebar,
+body.confluencex-dark .ia-fixed-sidebar,
+body.confluencex-dark [data-testid="product-navigation-sidebar"] {
+  background-color: var(--cfx-dk-sidebar) !important;
+  border-right-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark .ia-splitter-left,
+body.confluencex-dark #com-atlassian-confluence-plugins-pagetree-tree {
+  background-color: var(--cfx-dk-sidebar) !important;
+}
+
+/* Page tree items */
+body.confluencex-dark .page-menu-item,
+body.confluencex-dark .pagetree-view a,
+body.confluencex-dark .plugin-tabmeta-details a {
+  color: var(--cfx-dk-text2) !important;
+}
+
+body.confluencex-dark .page-menu-item:hover,
+body.confluencex-dark .pagetree-view a:hover {
+  background-color: var(--cfx-dk-bg3) !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* ─── Content Area ───────────────────────────────────────────────────────── */
+body.confluencex-dark #content-header,
+body.confluencex-dark .page-header {
+  background-color: var(--cfx-dk-bg) !important;
+  border-bottom-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark #title-text,
+body.confluencex-dark h1.pagetitle,
+body.confluencex-dark .pagetitle {
+  color: var(--cfx-dk-text) !important;
+}
+
+/* Breadcrumbs */
+body.confluencex-dark #breadcrumbs,
+body.confluencex-dark .breadcrumbs,
+body.confluencex-dark nav[aria-label="Breadcrumbs"] {
+  background-color: var(--cfx-dk-bg) !important;
+}
+
+body.confluencex-dark #breadcrumbs a,
+body.confluencex-dark .breadcrumbs a {
+  color: var(--cfx-dk-text2) !important;
+}
+
+/* ─── Links ──────────────────────────────────────────────────────────────── */
+body.confluencex-dark a,
+body.confluencex-dark .wiki-content a {
+  color: var(--cfx-dk-link) !important;
+}
+
+body.confluencex-dark a:hover,
+body.confluencex-dark .wiki-content a:hover {
+  color: var(--cfx-dk-blue) !important;
+  text-decoration: underline !important;
+}
+
+/* ─── Text ───────────────────────────────────────────────────────────────── */
+body.confluencex-dark p,
+body.confluencex-dark li,
+body.confluencex-dark td,
+body.confluencex-dark th,
+body.confluencex-dark span,
+body.confluencex-dark div,
+body.confluencex-dark label {
+  color: var(--cfx-dk-text) !important;
+}
+
+body.confluencex-dark h1,
+body.confluencex-dark h2,
+body.confluencex-dark h3,
+body.confluencex-dark h4,
+body.confluencex-dark h5,
+body.confluencex-dark h6 {
+  color: var(--cfx-dk-text) !important;
+}
+
+/* ─── Tables ─────────────────────────────────────────────────────────────── */
+body.confluencex-dark table.confluenceTable,
+body.confluencex-dark table.wiki-content-table {
+  border-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark table.confluenceTable th,
+body.confluencex-dark table.confluenceTable .confluenceTh,
+body.confluencex-dark table.wiki-content-table th {
+  background-color: var(--cfx-dk-bg3) !important;
+  color: var(--cfx-dk-text) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark table.confluenceTable td,
+body.confluencex-dark table.confluenceTable .confluenceTd,
+body.confluencex-dark table.wiki-content-table td {
+  background-color: var(--cfx-dk-bg2) !important;
+  color: var(--cfx-dk-text) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark table.confluenceTable tr:nth-child(even) td,
+body.confluencex-dark table.confluenceTable tr:nth-child(even) .confluenceTd {
+  background-color: var(--cfx-dk-surface) !important;
+}
+
+/* ─── Code Blocks ────────────────────────────────────────────────────────── */
+body.confluencex-dark .code.panel,
+body.confluencex-dark .code.panel .codeHeader,
+body.confluencex-dark .code.panel .codeContent {
+  background-color: var(--cfx-dk-code-bg) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark .code.panel pre,
+body.confluencex-dark .code.panel code,
+body.confluencex-dark pre,
+body.confluencex-dark code {
+  background-color: var(--cfx-dk-code-bg) !important;
+  color: #cba6f7 !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+/* ─── Macros ─────────────────────────────────────────────────────────────── */
+/* Info macro */
+body.confluencex-dark .confluence-information-macro.confluence-information-macro-information,
+body.confluencex-dark div.confluence-information-macro-information {
+  background-color: #1e3a5f !important;
+  border-color: #1e40af !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* Note macro */
+body.confluencex-dark .confluence-information-macro.confluence-information-macro-note,
+body.confluencex-dark div.confluence-information-macro-note {
+  background-color: #3d2c00 !important;
+  border-color: #92400e !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* Warning macro */
+body.confluencex-dark .confluence-information-macro.confluence-information-macro-warning,
+body.confluencex-dark div.confluence-information-macro-warning {
+  background-color: #3d0000 !important;
+  border-color: #991b1b !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* Tip macro */
+body.confluencex-dark .confluence-information-macro.confluence-information-macro-tip,
+body.confluencex-dark div.confluence-information-macro-tip {
+  background-color: #003d1e !important;
+  border-color: #166534 !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* Panel macro */
+body.confluencex-dark .panel,
+body.confluencex-dark .panelContent {
+  background-color: var(--cfx-dk-bg3) !important;
+  border-color: var(--cfx-dk-border) !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+body.confluencex-dark .panelHeader {
+  background-color: var(--cfx-dk-surface) !important;
+  color: var(--cfx-dk-text) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+/* Expand macro */
+body.confluencex-dark .expand-container,
+body.confluencex-dark .expand-control {
+  background-color: var(--cfx-dk-bg3) !important;
+  border-color: var(--cfx-dk-border) !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* ─── Forms & Inputs ─────────────────────────────────────────────────────── */
+body.confluencex-dark input[type="text"],
+body.confluencex-dark input[type="search"],
+body.confluencex-dark textarea,
+body.confluencex-dark select,
+body.confluencex-dark .aui-text-field {
+  background-color: var(--cfx-dk-bg3) !important;
+  color: var(--cfx-dk-text) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark input[type="text"]:focus,
+body.confluencex-dark textarea:focus {
+  border-color: var(--cfx-dk-blue) !important;
+  box-shadow: 0 0 0 2px rgba(137, 180, 250, 0.2) !important;
+}
+
+/* ─── Buttons ────────────────────────────────────────────────────────────── */
+body.confluencex-dark .aui-button,
+body.confluencex-dark button.aui-button {
+  background-color: var(--cfx-dk-surface) !important;
+  color: var(--cfx-dk-text) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+body.confluencex-dark .aui-button.aui-button-primary {
+  background-color: #1e40af !important;
+  color: #fff !important;
+  border-color: #1e40af !important;
+}
+
+/* ─── Toolbars & Action Bars ─────────────────────────────────────────────── */
+body.confluencex-dark #action-menu-link,
+body.confluencex-dark .page-metadata-modification-info,
+body.confluencex-dark .page-metadata-modification-info a {
+  color: var(--cfx-dk-text2) !important;
+}
+
+body.confluencex-dark #page-metadata-banner,
+body.confluencex-dark .page-metadata-banner {
+  background-color: var(--cfx-dk-bg3) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+/* ─── Labels ─────────────────────────────────────────────────────────────── */
+body.confluencex-dark .label,
+body.confluencex-dark a.label {
+  background-color: var(--cfx-dk-surface) !important;
+  color: var(--cfx-dk-text2) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+/* ─── Comments ───────────────────────────────────────────────────────────── */
+body.confluencex-dark #comments-section,
+body.confluencex-dark .comment,
+body.confluencex-dark .comment-body,
+body.confluencex-dark .comment-content {
+  background-color: var(--cfx-dk-bg2) !important;
+  border-color: var(--cfx-dk-border) !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* ─── Search Results ─────────────────────────────────────────────────────── */
+body.confluencex-dark .search-result,
+body.confluencex-dark .search-results {
+  background-color: var(--cfx-dk-bg2) !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* ─── Page Restrictions / Status ─────────────────────────────────────────── */
+body.confluencex-dark .aui-message,
+body.confluencex-dark .aui-message.aui-message-info {
+  background-color: #1e3a5f !important;
+  border-color: #1e40af !important;
+  color: var(--cfx-dk-text) !important;
+}
+
+/* ─── Horizontal Rule ────────────────────────────────────────────────────── */
+body.confluencex-dark hr {
+  border-color: var(--cfx-dk-border) !important;
+}
+
+/* ─── Blockquote ─────────────────────────────────────────────────────────── */
+body.confluencex-dark blockquote {
+  border-left-color: var(--cfx-dk-border) !important;
+  color: var(--cfx-dk-text2) !important;
+  background-color: var(--cfx-dk-bg3) !important;
+}
+
+/* ─── Status Lozenge (JIRA-style) ────────────────────────────────────────── */
+body.confluencex-dark .aui-lozenge {
+  opacity: 0.9 !important;
+}
+
+/* ─── Footer ─────────────────────────────────────────────────────────────── */
+body.confluencex-dark #footer,
+body.confluencex-dark .footer-body {
+  background-color: var(--cfx-dk-bg3) !important;
+  border-top-color: var(--cfx-dk-border) !important;
+  color: var(--cfx-dk-text3) !important;
+}
+
+/* ─── Dialog / Modal ─────────────────────────────────────────────────────── */
+body.confluencex-dark .aui-dialog2-content,
+body.confluencex-dark .aui-dialog2-header,
+body.confluencex-dark .aui-dialog2-footer {
+  background-color: var(--cfx-dk-bg2) !important;
+  color: var(--cfx-dk-text) !important;
+  border-color: var(--cfx-dk-border) !important;
+}
+
+/* ─── Scrollbar (Webkit) ─────────────────────────────────────────────────── */
+body.confluencex-dark ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+body.confluencex-dark ::-webkit-scrollbar-track {
+  background: var(--cfx-dk-bg) !important;
+}
+
+body.confluencex-dark ::-webkit-scrollbar-thumb {
+  background: var(--cfx-dk-border) !important;
+  border-radius: 4px;
+}
+
+body.confluencex-dark ::-webkit-scrollbar-thumb:hover {
+  background: var(--cfx-dk-text3) !important;
+}
+
+/* ─── TinyMCE Editor ─────────────────────────────────────────────────────── */
+/* Applied inside the editor iframe via dark-mode.js */
+body.confluencex-dark {
+  background-color: var(--cfx-dk-bg) !important;
+  color: var(--cfx-dk-text) !important;
+}

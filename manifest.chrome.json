@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "ConfluenceX",
+  "version": "1.0.0",
+  "description": "AI-powered sidebar for Confluence: edit pages, move pages, dark mode and more.",
+  "icons": {
+    "16": "icons/icon-16.png",
+    "32": "icons/icon-32.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+  "permissions": [
+    "sidePanel",
+    "storage",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "*://*/*"
+  ],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://*/*"],
+      "js": [
+        "shared/browser-polyfill.js",
+        "shared/constants.js",
+        "shared/message-types.js",
+        "content/page-detector.js",
+        "content/scroll-to-top.js",
+        "content/dark-mode.js",
+        "content/content-main.js"
+      ],
+      "css": [],
+      "run_at": "document_idle"
+    }
+  ],
+  "side_panel": {
+    "default_path": "sidepanel/sidepanel.html"
+  },
+  "options_ui": {
+    "page": "options/options.html",
+    "open_in_tab": true
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["content/dark-mode.css"],
+      "matches": ["*://*/*"]
+    }
+  ],
+  "commands": {
+    "_execute_side_panel": {
+      "suggested_key": {
+        "default": "Ctrl+Shift+Y",
+        "mac": "Command+Shift+Y"
+      },
+      "description": "Toggle ConfluenceX sidebar"
+    }
+  },
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

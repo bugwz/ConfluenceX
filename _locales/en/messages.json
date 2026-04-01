@@ -1,0 +1,14 @@
+{
+  "extensionName": {
+    "message": "ConfluenceX",
+    "description": "Name of the extension"
+  },
+  "extensionDescription": {
+    "message": "AI-powered sidebar for Confluence: edit pages with AI, move pages, dark mode and more.",
+    "description": "Description of the extension"
+  },
+  "toggleSidebar": {
+    "message": "Toggle ConfluenceX sidebar",
+    "description": "Keyboard shortcut description"
+  }
+}
