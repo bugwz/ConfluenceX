@@ -230,8 +230,13 @@ async function getConfluenceAuthConfig() {
   const userEmail = (settings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || '').trim();
   const apiToken = (settings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN] || '').trim();
 
-  if (mode === 'token' && (!userEmail || !apiToken)) {
-    throw new Error('Token auth mode requires Confluence email and API token in Settings.');
+  if (mode === 'token') {
+    if (deployment === 'cloud' && (!userEmail || !apiToken)) {
+      throw new Error('Cloud token mode requires Confluence email and API token in Settings.');
+    }
+    if (deployment === 'dc' && !apiToken) {
+      throw new Error('Data Center token mode requires PAT token in Settings.');
+    }
   }
 
   return { mode, deployment, userEmail, apiToken };

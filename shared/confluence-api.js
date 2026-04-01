@@ -21,15 +21,22 @@
     if (mode === 'token') {
       const deployment = auth.deployment || 'cloud';
 
-      if (deployment !== 'cloud') {
-        throw new ConfluenceApiError('Only Confluence Cloud token auth is supported right now.', 400);
-      }
-      if (!auth.userEmail || !auth.apiToken) {
-        throw new ConfluenceApiError('Token mode requires Confluence email and API token.', 400);
+      if (deployment === 'cloud') {
+        if (!auth.userEmail || !auth.apiToken) {
+          throw new ConfluenceApiError('Cloud token mode requires Confluence email and API token.', 400);
+        }
+        const encoded = btoa(`${auth.userEmail}:${auth.apiToken}`);
+        return { Authorization: `Basic ${encoded}` };
       }
 
-      const encoded = btoa(`${auth.userEmail}:${auth.apiToken}`);
-      return { Authorization: `Basic ${encoded}` };
+      if (deployment === 'dc') {
+        if (!auth.apiToken) {
+          throw new ConfluenceApiError('Data Center token mode requires PAT token.', 400);
+        }
+        return { Authorization: `Bearer ${auth.apiToken}` };
+      }
+
+      throw new ConfluenceApiError(`Unsupported Confluence deployment: ${deployment}`, 400);
     }
 
     return {};

@@ -109,11 +109,16 @@
 
   function updateAuthFieldVisibility() {
     const mode = $('authMode').value;
+    const deploymentValue = $('deployment').value;
     const tokenFields = $('tokenAuthFields');
     const deployment = $('deployment');
+    const emailField = $('confluenceEmail').closest('.opt-field');
 
     tokenFields.style.display = mode === 'token' ? 'block' : 'none';
     deployment.disabled = mode !== 'token';
+    if (emailField) {
+      emailField.style.display = mode === 'token' && deploymentValue === 'cloud' ? 'block' : 'none';
+    }
   }
 
   $('provider').addEventListener('change', () => {
@@ -137,6 +142,7 @@
   });
 
   $('authMode').addEventListener('change', updateAuthFieldVisibility);
+  $('deployment').addEventListener('change', updateAuthFieldVisibility);
 
   $('saveBtn').addEventListener('click', async () => {
     $('saveBtn').disabled = true;
@@ -148,11 +154,11 @@
       const allowedOrigins = parseAllowedOrigins($('allowedOrigins').value);
 
       if (authMode === 'token') {
-        if (deployment !== 'cloud') {
-          throw new Error('Only Confluence Cloud token mode is currently supported');
+        if (deployment === 'cloud' && (!confluenceEmail || !confluenceToken)) {
+          throw new Error('Cloud token mode requires Confluence email and API token');
         }
-        if (!confluenceEmail || !confluenceToken) {
-          throw new Error('Confluence email and API token are required in token mode');
+        if (deployment === 'dc' && !confluenceToken) {
+          throw new Error('Data Center token mode requires PAT token');
         }
       }
       if ($('allowedOrigins').value.trim() && allowedOrigins.length === 0) {

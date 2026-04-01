@@ -197,7 +197,7 @@
     authModeSelect.className = 'cfx-select';
     [
       { value: 'cookie', label: 'Cookie (browser login session)' },
-      { value: 'token', label: 'API Token (Cloud)' },
+      { value: 'token', label: 'Token / PAT' },
     ].forEach(({ value, label }) => {
       const opt = document.createElement('option');
       opt.value = value;
@@ -214,7 +214,7 @@
     deploymentSelect.className = 'cfx-select';
     [
       { value: 'cloud', label: 'Cloud' },
-      { value: 'dc', label: 'Data Center / Server (reserved)' },
+      { value: 'dc', label: 'Data Center / Server' },
     ].forEach(({ value, label }) => {
       const opt = document.createElement('option');
       opt.value = value;
@@ -257,11 +257,13 @@
 
     function updateAuthFieldVisibility() {
       const isTokenMode = authModeSelect.value === 'token';
-      confluenceEmailField.style.display = isTokenMode ? 'block' : 'none';
+      const isCloud = deploymentSelect.value === 'cloud';
+      confluenceEmailField.style.display = isTokenMode && isCloud ? 'block' : 'none';
       confluenceTokenField.style.display = isTokenMode ? 'block' : 'none';
       deploymentSelect.disabled = !isTokenMode;
     }
     authModeSelect.addEventListener('change', updateAuthFieldVisibility);
+    deploymentSelect.addEventListener('change', updateAuthFieldVisibility);
     updateAuthFieldVisibility();
 
     // ── Allowed Confluence URLs ──
@@ -374,11 +376,17 @@
 
       try {
         if (newSettings[CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE] === 'token') {
-          if (newSettings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] !== 'cloud') {
-            throw new Error('Only Confluence Cloud token mode is currently supported');
+          if (
+            newSettings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] === 'cloud' &&
+            (!newSettings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || !newSettings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN])
+          ) {
+            throw new Error('Cloud token mode requires Confluence email and API token');
           }
-          if (!newSettings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || !newSettings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]) {
-            throw new Error('Confluence email and API token are required in token mode');
+          if (
+            newSettings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] === 'dc' &&
+            !newSettings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]
+          ) {
+            throw new Error('Data Center token mode requires PAT token');
           }
         }
         if (allowedOriginsInput.value.trim() && newSettings[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS].length === 0) {
