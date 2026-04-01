@@ -87,9 +87,27 @@ async function refreshSidePanelForActiveTab() {
   await updateSidePanelForTab(tab.id, tab.url || '');
 }
 
+async function refreshSidePanelForAllTabs() {
+  if (!cfxApi?.tabs?.query) return;
+  const tabs = await cfxApi.tabs.query({});
+  if (!tabs || !tabs.length) return;
+  await Promise.all(
+    tabs
+      .filter((tab) => typeof tab.id === 'number')
+      .map((tab) => updateSidePanelForTab(tab.id, tab.url || '').catch(() => {}))
+  );
+}
+
 if (typeof chrome !== 'undefined' && chrome.sidePanel) {
   // Never open side panel on action click; action click opens Options instead.
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
+  // Default: disable side panel globally; only enable on allowed tabs.
+  if (chrome.sidePanel.setOptions) {
+    chrome.sidePanel.setOptions({
+      path: 'sidepanel/sidepanel.html',
+      enabled: false,
+    }).catch(() => {});
+  }
 
   if (chrome.tabs && chrome.tabs.onUpdated) {
     chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
@@ -110,13 +128,13 @@ if (typeof chrome !== 'undefined' && chrome.sidePanel) {
 
   if (chrome.runtime && chrome.runtime.onStartup) {
     chrome.runtime.onStartup.addListener(() => {
-      refreshSidePanelForActiveTab().catch(() => {});
+      refreshSidePanelForAllTabs().catch(() => {});
     });
   }
 
   if (chrome.runtime && chrome.runtime.onInstalled) {
     chrome.runtime.onInstalled.addListener(() => {
-      refreshSidePanelForActiveTab().catch(() => {});
+      refreshSidePanelForAllTabs().catch(() => {});
     });
   }
 
@@ -127,10 +145,13 @@ if (typeof chrome !== 'undefined' && chrome.sidePanel) {
         changes[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS] ||
         changes[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]
       ) {
-        refreshSidePanelForActiveTab().catch(() => {});
+        refreshSidePanelForAllTabs().catch(() => {});
       }
     });
   }
+
+  // Immediate sync for current session tabs.
+  refreshSidePanelForAllTabs().catch(() => {});
 }
 
 // ─── Action click (Chrome: open side panel; Firefox: sidebar opens automatically) ──
