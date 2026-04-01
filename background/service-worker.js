@@ -23,13 +23,123 @@ try {
 
 // ─── Side Panel Setup (Chrome only) ─────────────────────────────────────────
 
-if (typeof chrome !== 'undefined' && chrome.sidePanel) {
+const isChromeSidePanelAvailable = typeof chrome !== 'undefined' && !!chrome.sidePanel;
+
+function normalizeOrigin(urlLike) {
+  if (!urlLike || typeof urlLike !== 'string') return null;
+  const trimmed = urlLike.trim();
+  if (!trimmed) return null;
+  try {
+    return new URL(trimmed).origin;
+  } catch (e) {
+    if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)) {
+      try {
+        return new URL(`https://${trimmed}`).origin;
+      } catch (e2) {
+        return null;
+      }
+    }
+    return null;
+  }
+}
+
+async function getAllowedConfluenceOrigins() {
+  const stored = await cfxApi.storage.local.get([
+    CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS,
+    CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL,
+  ]);
+
+  let allowedOrigins = Array.isArray(stored[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS])
+    ? stored[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]
+    : [];
+
+  if (allowedOrigins.length === 0 && stored[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]) {
+    const migrated = normalizeOrigin(stored[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]);
+    if (migrated) {
+      allowedOrigins = [migrated];
+    }
+  }
+
+  return new Set(allowedOrigins.map(normalizeOrigin).filter(Boolean));
+}
+
+function isAllowedTabUrl(tabUrl, allowedOrigins) {
+  if (!tabUrl || !allowedOrigins || allowedOrigins.size === 0) return false;
+  try {
+    const origin = new URL(tabUrl).origin;
+    return allowedOrigins.has(origin);
+  } catch (e) {
+    return false;
+  }
+}
+
+async function updateSidePanelForTab(tabId, tabUrl) {
+  if (!isChromeSidePanelAvailable || typeof tabId !== 'number' || !chrome.sidePanel.setOptions) return;
+  try {
+    const allowedOrigins = await getAllowedConfluenceOrigins();
+    const enabled = isAllowedTabUrl(tabUrl, allowedOrigins);
+    await chrome.sidePanel.setOptions({
+      tabId,
+      path: 'sidepanel/sidepanel.html',
+      enabled,
+    });
+  } catch (e) {
+    // Ignore transient tab/storage errors.
+  }
+}
+
+async function refreshSidePanelForAllTabs() {
+  if (!isChromeSidePanelAvailable || !chrome.tabs?.query) return;
+  try {
+    const tabs = await chrome.tabs.query({});
+    await Promise.all(
+      (tabs || [])
+        .filter((tab) => typeof tab.id === 'number')
+        .map((tab) => updateSidePanelForTab(tab.id, tab.url))
+    );
+  } catch (e) {
+    // Ignore transient tab query errors.
+  }
+}
+
+if (isChromeSidePanelAvailable) {
   // Let browser action click toggle side panel directly.
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
-  // Keep side panel available on all tabs.
+
+  // Default to disabled globally; we enable it per-tab for allowed origins only.
   if (chrome.sidePanel.setOptions) {
-    chrome.sidePanel.setOptions({ enabled: true }).catch(() => {});
+    chrome.sidePanel.setOptions({ enabled: false }).catch(() => {});
   }
+
+  chrome.tabs?.onUpdated?.addListener((tabId, changeInfo, tab) => {
+    if (!changeInfo.url && changeInfo.status !== 'complete') return;
+    updateSidePanelForTab(tabId, changeInfo.url || tab?.url);
+  });
+
+  chrome.tabs?.onActivated?.addListener(async ({ tabId }) => {
+    try {
+      const tab = await chrome.tabs.get(tabId);
+      updateSidePanelForTab(tabId, tab?.url);
+    } catch (e) {
+      // Ignore transient tab access errors.
+    }
+  });
+
+  chrome.storage?.onChanged?.addListener((changes, areaName) => {
+    if (areaName !== 'local') return;
+    if (!changes[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]
+      && !changes[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]) return;
+    refreshSidePanelForAllTabs();
+  });
+
+  chrome.runtime?.onInstalled?.addListener(() => {
+    refreshSidePanelForAllTabs();
+  });
+  chrome.runtime?.onStartup?.addListener(() => {
+    refreshSidePanelForAllTabs();
+  });
+
+  refreshSidePanelForAllTabs();
 }
 
 // ─── Message Router ──────────────────────────────────────────────────────────
