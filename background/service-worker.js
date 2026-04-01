@@ -169,7 +169,30 @@ const _actionApi = typeof chrome !== 'undefined' && chrome.action
   : (typeof browser !== 'undefined' && browser.browserAction ? browser.browserAction : null);
 
 if (_actionApi) {
-  _actionApi.onClicked.addListener(() => {
+  _actionApi.onClicked.addListener(async (tab) => {
+    // Chrome: manual open only on configured origins.
+    if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
+      try {
+        let activeTab = tab;
+        if (!activeTab || typeof activeTab.id !== 'number') {
+          const tabs = await cfxApi.tabs.query({ active: true, currentWindow: true });
+          activeTab = tabs && tabs.length ? tabs[0] : null;
+        }
+
+        if (activeTab && typeof activeTab.id === 'number') {
+          const allowed = await isAllowedTabUrl(activeTab.url || '');
+          await chrome.sidePanel.setOptions({ tabId: activeTab.id, enabled: allowed });
+          if (allowed) {
+            await chrome.sidePanel.open({ tabId: activeTab.id });
+            return;
+          }
+        }
+      } catch (e) {
+        // Ignore and fallback to options page
+      }
+    }
+
+    // Fallback: open options page.
     const runtimeApi = (typeof browser !== 'undefined' ? browser.runtime : chrome.runtime);
     if (runtimeApi && runtimeApi.openOptionsPage) {
       const ret = runtimeApi.openOptionsPage();
