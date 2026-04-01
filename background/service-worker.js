@@ -74,7 +74,6 @@ async function updateSidePanelForTab(tabId, url) {
   const enabled = await isAllowedTabUrl(url);
   await chrome.sidePanel.setOptions({
     tabId,
-    path: 'sidepanel/sidepanel.html',
     enabled,
   });
 }
@@ -104,7 +103,6 @@ if (typeof chrome !== 'undefined' && chrome.sidePanel) {
   // Default: disable side panel globally; only enable on allowed tabs.
   if (chrome.sidePanel.setOptions) {
     chrome.sidePanel.setOptions({
-      path: 'sidepanel/sidepanel.html',
       enabled: false,
     }).catch(() => {});
   }
