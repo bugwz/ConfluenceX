@@ -48,6 +48,23 @@
       || createNativeApi();
   }
 
+  function normalizeOrigin(urlLike) {
+    if (!urlLike || typeof urlLike !== 'string') return null;
+    try {
+      return new URL(urlLike.trim()).origin;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function parseAllowedOrigins(text) {
+    const lines = (text || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return [...new Set(lines.map(normalizeOrigin).filter(Boolean))];
+  }
+
   const PROVIDERS = CFX.DEFAULTS.AI_PROVIDERS;
 
   const $ = (id) => document.getElementById(id);
@@ -70,6 +87,16 @@
     $('deployment').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] || CFX.DEFAULTS.CONFLUENCE_DEPLOYMENT;
     $('confluenceEmail').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || '';
     $('confluenceToken').value = settings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN] || '';
+    let allowedOrigins = Array.isArray(settings[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS])
+      ? settings[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]
+      : CFX.DEFAULTS.CONFLUENCE_ALLOWED_ORIGINS;
+    if (allowedOrigins.length === 0 && settings[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]) {
+      const migrated = normalizeOrigin(settings[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]);
+      if (migrated) {
+        allowedOrigins = [migrated];
+      }
+    }
+    $('allowedOrigins').value = allowedOrigins.join('\n');
     updateAuthFieldVisibility();
   }
 
@@ -118,6 +145,7 @@
       const deployment = $('deployment').value;
       const confluenceEmail = $('confluenceEmail').value.trim();
       const confluenceToken = $('confluenceToken').value.trim();
+      const allowedOrigins = parseAllowedOrigins($('allowedOrigins').value);
 
       if (authMode === 'token') {
         if (deployment !== 'cloud') {
@@ -126,6 +154,9 @@
         if (!confluenceEmail || !confluenceToken) {
           throw new Error('Confluence email and API token are required in token mode');
         }
+      }
+      if ($('allowedOrigins').value.trim() && allowedOrigins.length === 0) {
+        throw new Error('Allowed Confluence URLs contains no valid URL');
       }
 
       const api = getApi();
@@ -142,6 +173,7 @@
         [CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT]: deployment,
         [CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL]: confluenceEmail,
         [CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]: confluenceToken,
+        [CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]: allowedOrigins,
       });
       showFeedback('✓ Settings saved', true);
     } catch (err) {

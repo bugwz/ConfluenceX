@@ -23,8 +23,114 @@ try {
 
 // ─── Side Panel Setup (Chrome only) ─────────────────────────────────────────
 
+function normalizeOrigin(urlLike) {
+  if (!urlLike || typeof urlLike !== 'string') return null;
+  try {
+    return new URL(urlLike.trim()).origin;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getAllowedOriginsWithMigration() {
+  const keys = [
+    CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS,
+    CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL,
+  ];
+  const data = await cfxApi.storage.local.get(keys);
+
+  const rawList = Array.isArray(data[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS])
+    ? data[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]
+    : [];
+
+  let allowedOrigins = rawList
+    .map(normalizeOrigin)
+    .filter(Boolean);
+
+  // Legacy migration: if list is empty and old single baseUrl exists, migrate it.
+  if (allowedOrigins.length === 0 && data[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]) {
+    const migrated = normalizeOrigin(data[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]);
+    if (migrated) {
+      allowedOrigins = [migrated];
+      await cfxApi.storage.local.set({
+        [CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]: allowedOrigins,
+      });
+    }
+  }
+
+  return [...new Set(allowedOrigins)];
+}
+
+async function isAllowedTabUrl(url) {
+  const origin = normalizeOrigin(url);
+  if (!origin) return false;
+  const allowedOrigins = await getAllowedOriginsWithMigration();
+  return allowedOrigins.includes(origin);
+}
+
+async function updateSidePanelForTab(tabId, url) {
+  if (typeof chrome === 'undefined' || !chrome.sidePanel || !chrome.sidePanel.setOptions) return;
+
+  const enabled = await isAllowedTabUrl(url);
+  await chrome.sidePanel.setOptions({
+    tabId,
+    path: 'sidepanel/sidepanel.html',
+    enabled,
+  });
+}
+
+async function refreshSidePanelForActiveTab() {
+  if (!cfxApi?.tabs?.query) return;
+  const tabs = await cfxApi.tabs.query({ active: true, currentWindow: true });
+  if (!tabs || !tabs.length) return;
+  const tab = tabs[0];
+  await updateSidePanelForTab(tab.id, tab.url || '');
+}
+
 if (typeof chrome !== 'undefined' && chrome.sidePanel) {
-  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  // Never open side panel on action click; action click opens Options instead.
+  chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false }).catch(() => {});
+
+  if (chrome.tabs && chrome.tabs.onUpdated) {
+    chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+      const nextUrl = changeInfo.url || tab?.url;
+      if (!nextUrl) return;
+      updateSidePanelForTab(tabId, nextUrl).catch(() => {});
+    });
+  }
+
+  if (chrome.tabs && chrome.tabs.onActivated) {
+    chrome.tabs.onActivated.addListener((activeInfo) => {
+      chrome.tabs.get(activeInfo.tabId, (tab) => {
+        if (!tab) return;
+        updateSidePanelForTab(activeInfo.tabId, tab.url || '').catch(() => {});
+      });
+    });
+  }
+
+  if (chrome.runtime && chrome.runtime.onStartup) {
+    chrome.runtime.onStartup.addListener(() => {
+      refreshSidePanelForActiveTab().catch(() => {});
+    });
+  }
+
+  if (chrome.runtime && chrome.runtime.onInstalled) {
+    chrome.runtime.onInstalled.addListener(() => {
+      refreshSidePanelForActiveTab().catch(() => {});
+    });
+  }
+
+  if (chrome.storage && chrome.storage.onChanged) {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== 'local') return;
+      if (
+        changes[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS] ||
+        changes[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]
+      ) {
+        refreshSidePanelForActiveTab().catch(() => {});
+      }
+    });
+  }
 }
 
 // ─── Action click (Chrome: open side panel; Firefox: sidebar opens automatically) ──
@@ -34,9 +140,13 @@ const _actionApi = typeof chrome !== 'undefined' && chrome.action
   : (typeof browser !== 'undefined' && browser.browserAction ? browser.browserAction : null);
 
 if (_actionApi) {
-  _actionApi.onClicked.addListener((tab) => {
-    if (typeof chrome !== 'undefined' && chrome.sidePanel && chrome.sidePanel.open) {
-      chrome.sidePanel.open({ windowId: tab.windowId }).catch(() => {});
+  _actionApi.onClicked.addListener(() => {
+    const runtimeApi = (typeof browser !== 'undefined' ? browser.runtime : chrome.runtime);
+    if (runtimeApi && runtimeApi.openOptionsPage) {
+      const ret = runtimeApi.openOptionsPage();
+      if (ret && typeof ret.catch === 'function') {
+        ret.catch(() => {});
+      }
     }
   });
 }
@@ -270,6 +380,7 @@ async function handleGetSettings(sendResponse) {
 async function handleSaveSettings({ settings }, sendResponse) {
   try {
     await cfxApi.storage.local.set(settings);
+    refreshSidePanelForActiveTab().catch(() => {});
     sendResponse({ success: true });
   } catch (err) {
     sendResponse({ success: false, error: err.message });

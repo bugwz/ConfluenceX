@@ -70,6 +70,23 @@
       || createNativeApi();
   }
 
+  function normalizeOrigin(urlLike) {
+    if (!urlLike || typeof urlLike !== 'string') return null;
+    try {
+      return new URL(urlLike.trim()).origin;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function parseAllowedOrigins(text) {
+    const lines = (text || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return [...new Set(lines.map(normalizeOrigin).filter(Boolean))];
+  }
+
   let container = null;
   let pageContext = null;
 
@@ -103,6 +120,15 @@
     const provider = settings[CFX.STORAGE_KEYS.AI_PROVIDER] || 'openai';
     const authMode = settings[CFX.STORAGE_KEYS.CONFLUENCE_AUTH_MODE] || CFX.DEFAULTS.CONFLUENCE_AUTH_MODE;
     const deployment = settings[CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT] || CFX.DEFAULTS.CONFLUENCE_DEPLOYMENT;
+    let allowedOrigins = Array.isArray(settings[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS])
+      ? settings[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]
+      : [];
+    if (allowedOrigins.length === 0 && settings[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]) {
+      const migrated = normalizeOrigin(settings[CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]);
+      if (migrated) {
+        allowedOrigins = [migrated];
+      }
+    }
 
     // ── AI Provider ──
     const providerField = createField('AI Provider');
@@ -238,6 +264,20 @@
     authModeSelect.addEventListener('change', updateAuthFieldVisibility);
     updateAuthFieldVisibility();
 
+    // ── Allowed Confluence URLs ──
+    const allowedOriginsField = createField('Allowed Confluence URLs');
+    const allowedOriginsNote = document.createElement('div');
+    allowedOriginsNote.style.cssText = 'font-size:11px;color:var(--cfx-text-muted);margin-bottom:4px;';
+    allowedOriginsNote.textContent = 'One URL per line. Matching uses origin only, e.g. https://yourcompany.atlassian.net';
+    const allowedOriginsInput = document.createElement('textarea');
+    allowedOriginsInput.className = 'cfx-input';
+    allowedOriginsInput.rows = 4;
+    allowedOriginsInput.placeholder = 'https://yourcompany.atlassian.net';
+    allowedOriginsInput.value = allowedOrigins.join('\n');
+    allowedOriginsField.appendChild(allowedOriginsNote);
+    allowedOriginsField.appendChild(allowedOriginsInput);
+    form.appendChild(allowedOriginsField);
+
     // ── Confluence Base URL ──
     const baseUrlField = createField('Confluence Base URL');
     const baseUrlNote = document.createElement('div');
@@ -327,6 +367,7 @@
         [CFX.STORAGE_KEYS.CONFLUENCE_DEPLOYMENT]: deploymentSelect.value,
         [CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL]: confluenceEmailInput.value.trim(),
         [CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]: confluenceTokenInput.value.trim(),
+        [CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS]: parseAllowedOrigins(allowedOriginsInput.value),
         [CFX.STORAGE_KEYS.CONFLUENCE_BASE_URL]: baseUrlInput.value.trim(),
         [CFX.STORAGE_KEYS.MAX_CONTENT_LENGTH]: parseInt(maxLenInput.value, 10) || CFX.DEFAULTS.MAX_CONTENT_LENGTH,
       };
@@ -339,6 +380,9 @@
           if (!newSettings[CFX.STORAGE_KEYS.CONFLUENCE_USER_EMAIL] || !newSettings[CFX.STORAGE_KEYS.CONFLUENCE_API_TOKEN]) {
             throw new Error('Confluence email and API token are required in token mode');
           }
+        }
+        if (allowedOriginsInput.value.trim() && newSettings[CFX.STORAGE_KEYS.CONFLUENCE_ALLOWED_ORIGINS].length === 0) {
+          throw new Error('Allowed Confluence URLs contains no valid URL');
         }
 
         const api = getApi();

@@ -70,6 +70,11 @@
         </div>
       </div>
       <div class="opt-field">
+        <label for="allowedOrigins">Allowed Confluence URLs</label>
+        <small>One URL per line. Matching is by origin (protocol + host + port), for example https://yourcompany.atlassian.net</small>
+        <textarea id="allowedOrigins" class="opt-input" rows="4" placeholder="https://yourcompany.atlassian.net"></textarea>
+      </div>
+      <div class="opt-field">
         <label for="baseUrl">Confluence Base URL</label>
         <small>Auto-detected when you visit a Confluence page. Override here if needed.</small>
         <input type="text" id="baseUrl" class="opt-input" placeholder="https://confluence.yourcompany.com">

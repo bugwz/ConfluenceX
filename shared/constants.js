@@ -28,6 +28,7 @@
     // UI prefs
     DARK_MODE: 'cfx_dark_mode',           // boolean
     CONFLUENCE_BASE_URL: 'cfx_base_url',  // auto-detected or user override
+    CONFLUENCE_ALLOWED_ORIGINS: 'cfx_confluence_allowed_origins', // string[]
     MAX_CONTENT_LENGTH: 'cfx_max_content_length',
     // Confluence auth settings
     CONFLUENCE_AUTH_MODE: 'cfx_confluence_auth_mode', // 'cookie' | 'token'
@@ -67,6 +68,7 @@
     HISTORY_MAX_PER_PAGE: 100,
     CONFLUENCE_AUTH_MODE: 'cookie',
     CONFLUENCE_DEPLOYMENT: 'cloud',
+    CONFLUENCE_ALLOWED_ORIGINS: [],
   });
 
   const DARK_MODE_CLASS = 'confluencex-dark';
