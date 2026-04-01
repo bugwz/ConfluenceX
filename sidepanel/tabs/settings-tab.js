@@ -72,9 +72,19 @@
 
   function normalizeOrigin(urlLike) {
     if (!urlLike || typeof urlLike !== 'string') return null;
+    const trimmed = urlLike.trim();
+    if (!trimmed) return null;
     try {
-      return new URL(urlLike.trim()).origin;
+      return new URL(trimmed).origin;
     } catch (e) {
+      // Accept bare host input like "confluence.example.com"
+      if (!/^[a-zA-Z][a-zA-Z\d+\-.]*:\/\//.test(trimmed)) {
+        try {
+          return new URL(`https://${trimmed}`).origin;
+        } catch (e2) {
+          return null;
+        }
+      }
       return null;
     }
   }
