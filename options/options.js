@@ -1,13 +1,18 @@
 (function () {
   'use strict';
 
+  const api = (typeof globalThis !== 'undefined' && globalThis.cfxApi)
+    || (typeof window !== 'undefined' && window.cfxApi)
+    || null;
+
   const PROVIDERS = CFX.DEFAULTS.AI_PROVIDERS;
 
   const $ = (id) => document.getElementById(id);
 
   async function load() {
     const keys = Object.values(CFX.STORAGE_KEYS);
-    const settings = await cfxApi.storage.local.get(keys);
+    if (!api) throw new Error('Extension API unavailable');
+    const settings = await api.storage.local.get(keys);
 
     const provider = settings[CFX.STORAGE_KEYS.AI_PROVIDER] || 'openai';
     $('provider').value = provider;
@@ -42,7 +47,8 @@
   $('saveBtn').addEventListener('click', async () => {
     $('saveBtn').disabled = true;
     try {
-      await cfxApi.storage.local.set({
+      if (!api) throw new Error('Extension API unavailable');
+      await api.storage.local.set({
         [CFX.STORAGE_KEYS.AI_PROVIDER]: $('provider').value,
         [CFX.STORAGE_KEYS.AI_ENDPOINT]: $('endpoint').value.trim(),
         [CFX.STORAGE_KEYS.AI_API_KEY]: $('apikey').value.trim(),
@@ -62,7 +68,8 @@
     if (!confirm('This will permanently delete all edit history stored locally. Continue?')) return;
     try {
       // Clear IndexedDB by sending message to background
-      await cfxApi.runtime.sendMessage({ type: 'CLEAR_ALL_HISTORY', payload: {} });
+      if (!api) throw new Error('Extension API unavailable');
+      await api.runtime.sendMessage({ type: 'CLEAR_ALL_HISTORY', payload: {} });
       showFeedback('✓ History cleared', true);
     } catch (err) {
       showFeedback('Error: ' + err.message, false);

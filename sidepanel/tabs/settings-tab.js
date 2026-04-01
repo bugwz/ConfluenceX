@@ -5,6 +5,10 @@
 (function () {
   'use strict';
 
+  const api = (typeof globalThis !== 'undefined' && globalThis.cfxApi)
+    || (typeof window !== 'undefined' && window.cfxApi)
+    || null;
+
   let container = null;
   let pageContext = null;
 
@@ -30,7 +34,8 @@
     const allKeys = Object.values(CFX.STORAGE_KEYS);
     let settings = {};
     try {
-      settings = await cfxApi.storage.local.get(allKeys);
+      if (!api) throw new Error('Extension API unavailable');
+      settings = await api.storage.local.get(allKeys);
     } catch (e) { /* use defaults */ }
 
     const provider = settings[CFX.STORAGE_KEYS.AI_PROVIDER] || 'openai';
@@ -141,12 +146,13 @@
     darkModeCheckbox.checked = settings[CFX.STORAGE_KEYS.DARK_MODE] || false;
     darkModeCheckbox.addEventListener('change', async () => {
       const enabled = darkModeCheckbox.checked;
-      await cfxApi.storage.local.set({ [CFX.STORAGE_KEYS.DARK_MODE]: enabled });
+      if (!api) throw new Error('Extension API unavailable');
+      await api.storage.local.set({ [CFX.STORAGE_KEYS.DARK_MODE]: enabled });
       // Notify content script
       try {
-        const tabs = await cfxApi.tabs.query({ active: true, currentWindow: true });
+        const tabs = await api.tabs.query({ active: true, currentWindow: true });
         if (tabs && tabs.length > 0) {
-          await cfxApi.tabs.sendMessage(tabs[0].id, {
+          await api.tabs.sendMessage(tabs[0].id, {
             type: MSG.TOGGLE_DARK_MODE,
             payload: { enable: enabled },
           });
@@ -184,7 +190,8 @@
       };
 
       try {
-        await cfxApi.storage.local.set(newSettings);
+        if (!api) throw new Error('Extension API unavailable');
+        await api.storage.local.set(newSettings);
         feedbackEl.textContent = '✓ Saved';
         feedbackEl.style.color = 'var(--cfx-success)';
       } catch (err) {
