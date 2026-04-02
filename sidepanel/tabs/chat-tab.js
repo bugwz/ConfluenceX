@@ -230,8 +230,6 @@
       return;
     }
 
-    let typingEl = null;
-
     try {
       // Build AI messages
       const pageContent = pageData.body?.storage?.value || '';
@@ -241,54 +239,106 @@
       }
       const messages = globalThis.aiClient.buildMessages(chatHistory, pageContent, text, maxLen);
 
-      // Show typing indicator
-      typingEl = cfxChatMessage.createTypingIndicator();
-      messagesEl.appendChild(typingEl);
+      // Create streaming message element
+      const streamMsg = cfxChatMessage.createStreamingMessage();
+      messagesEl.appendChild(streamMsg.element);
       scrollToBottom();
 
-      const response = await cfxApi.runtime.sendMessage({
-        type: MSG.AI_CHAT_REQUEST,
-        payload: { messages },
+      // Open a port for streaming communication
+      const port = cfxApi.runtime.connect({ name: MSG.AI_STREAM_PORT });
+
+      let streamDone = false;
+      let errorReported = false;
+
+      await new Promise((resolve, reject) => {
+        port.onMessage.addListener((msg) => {
+          switch (msg.type) {
+            case MSG.AI_STREAM_STATUS:
+              streamMsg.setStatus(msg.status);
+              setStatus(msg.status === 'thinking' ? 'AI is thinking...' :
+                        msg.status === 'generating' ? 'AI is generating...' :
+                        msg.status === 'connecting' ? 'Connecting to AI...' : '');
+              break;
+
+            case MSG.AI_STREAM_THINKING:
+              streamMsg.appendThinking(msg.delta);
+              scrollToBottom();
+              break;
+
+            case MSG.AI_STREAM_DELTA:
+              streamMsg.appendDelta(msg.delta);
+              scrollToBottom();
+              break;
+
+            case MSG.AI_STREAM_DONE: {
+              streamDone = true;
+              const aiText = msg.content || streamMsg.getContent();
+
+              // Add AI response to chat history
+              chatHistory.push({ role: 'user', content: text });
+              chatHistory.push({ role: 'assistant', content: aiText });
+
+              // Try to extract content
+              const extracted = xmlUtils.sanitizeAiOutput(aiText);
+
+              if (extracted.content) {
+                // Strip <confluencex-content> from the displayed message —
+                // only show the conversational prefix, not the raw XHTML payload.
+                const conversationalPart = aiText.split('<confluencex-content>')[0].trim();
+                streamMsg.replaceContent(conversationalPart);
+              }
+
+              streamMsg.setStatus('done');
+              streamMsg.finalize(Date.now());
+
+              if (extracted.content) {
+                showDiffAndActions(pageContent, extracted.content, text, aiText);
+              } else if (extracted.error) {
+                addSystemMessage(`Note: ${extracted.error} The AI's response was shown above but no changes were applied.`);
+              }
+
+              port.disconnect();
+              resolve();
+              break;
+            }
+
+            case MSG.AI_STREAM_ERROR:
+              streamDone = true;
+              errorReported = true;
+              streamMsg.setStatus('error');
+              streamMsg.element.remove();
+              addMessage('assistant', `Error: ${msg.error}`);
+              port.disconnect();
+              resolve();
+              break;
+          }
+        });
+
+        port.onDisconnect.addListener(() => {
+          if (!streamDone) {
+            // Port closed unexpectedly before stream completed — treat as error
+            errorReported = true;
+            streamMsg.setStatus('error');
+            streamMsg.element.remove();
+            addMessage('assistant', 'Error: Connection to AI was interrupted. Please try again.');
+            resolve();
+          }
+        });
+
+        // Send the request through the port
+        port.postMessage({
+          type: MSG.AI_CHAT_REQUEST,
+          payload: { messages },
+        });
       });
-
-      typingEl.remove();
-      typingEl = null;
-
-      if (!response || !response.success) {
-        addMessage('assistant', `Error: ${response?.error || 'AI request failed'}`);
-        return;
-      }
-
-      const aiText = response.data;
-
-      // Add AI response to chat history
-      chatHistory.push({ role: 'user', content: text });
-      chatHistory.push({ role: 'assistant', content: aiText });
-
-      // Try to extract content
-      const extracted = xmlUtils.sanitizeAiOutput(aiText);
-
-      if (extracted.content) {
-        // Get the conversational part (everything before the tag)
-        const conversationalPart = aiText.split('<confluencex-content>')[0].trim();
-        if (conversationalPart) {
-          addMessage('assistant', conversationalPart);
-        }
-
-        // Show diff
-        showDiffAndActions(pageContent, extracted.content, text, aiText);
-      } else if (extracted.error) {
-        // AI didn't return valid content — show the response and an error
-        addMessage('assistant', aiText);
-        addSystemMessage(`Note: ${extracted.error} The AI's response was shown above but no changes were applied.`);
-      } else {
-        addMessage('assistant', aiText);
-      }
     } catch (err) {
-      if (typingEl) typingEl.remove();
-      addMessage('assistant', `Error: ${err.message}`);
+      // Surface errors not already reported by stream/disconnect handlers
+      if (!errorReported) {
+        addMessage('assistant', `Error: ${err.message}`);
+      }
     } finally {
       setLoading(false);
+      setStatus('');
       scrollToBottom();
     }
   }

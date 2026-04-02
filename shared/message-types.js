@@ -28,6 +28,13 @@
     // AI (sidepanel -> background)
     AI_CHAT_REQUEST: 'AI_CHAT_REQUEST',
     AI_CHAT_RESPONSE: 'AI_CHAT_RESPONSE',
+    // AI streaming (port-based)
+    AI_STREAM_PORT: 'AI_STREAM_PORT',
+    AI_STREAM_STATUS: 'AI_STREAM_STATUS',       // { status: 'connecting'|'thinking'|'generating'|'done'|'error' }
+    AI_STREAM_THINKING: 'AI_STREAM_THINKING',   // { delta: '...' }  partial thinking text
+    AI_STREAM_DELTA: 'AI_STREAM_DELTA',         // { delta: '...' }  partial content text
+    AI_STREAM_DONE: 'AI_STREAM_DONE',           // { content: '...', thinking: '...' }
+    AI_STREAM_ERROR: 'AI_STREAM_ERROR',         // { error: '...' }
     AI_ORG_SCAN_REQUEST: 'AI_ORG_SCAN_REQUEST',
     AI_ORG_SCAN_RESULT: 'AI_ORG_SCAN_RESULT',
     AI_ORG_PLAN_REQUEST: 'AI_ORG_PLAN_REQUEST',

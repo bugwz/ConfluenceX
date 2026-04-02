@@ -440,6 +440,104 @@ body {
   30% { transform: translateY(-4px); }
 }
 
+/* ─── Streaming Message ──────────────────────────────────────────────────── */
+
+.cfx-msg-streaming {
+  min-height: 32px;
+}
+
+/* Status indicator (connecting / thinking / generating) */
+.cfx-stream-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--cfx-text-muted);
+  margin-bottom: 6px;
+}
+
+.cfx-stream-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cfx-text-muted);
+  animation: cfx-status-pulse 1.5s ease-in-out infinite;
+}
+
+.cfx-stream-status-dot.cfx-status-thinking {
+  background: var(--cfx-warning);
+  animation: cfx-status-pulse 1s ease-in-out infinite;
+}
+
+.cfx-stream-status-dot.cfx-status-generating {
+  background: var(--cfx-success);
+  animation: cfx-status-pulse 0.8s ease-in-out infinite;
+}
+
+@keyframes cfx-status-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(0.8); }
+}
+
+/* Blinking cursor during streaming */
+.cfx-stream-cursor {
+  display: inline-block;
+  width: 2px;
+  height: 14px;
+  background: var(--cfx-primary);
+  margin-left: 1px;
+  vertical-align: text-bottom;
+  animation: cfx-cursor-blink 0.8s step-end infinite;
+}
+
+@keyframes cfx-cursor-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+/* Thinking block */
+.cfx-thinking-block {
+  border: 1px solid var(--cfx-border);
+  border-radius: var(--cfx-radius-sm);
+  margin-bottom: 8px;
+  overflow: hidden;
+  background: #fafbfc;
+}
+
+.cfx-thinking-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: var(--cfx-bg-secondary);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--cfx-text-secondary);
+  user-select: none;
+}
+
+.cfx-thinking-header:hover {
+  background: var(--cfx-bg-tertiary);
+}
+
+.cfx-thinking-chevron {
+  margin-left: auto;
+  transition: transform 0.2s;
+}
+
+.cfx-thinking-content {
+  padding: 8px 10px;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--cfx-text-secondary);
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 200px;
+  overflow-y: auto;
+  font-family: var(--cfx-font);
+}
+
 /* ─── Diff Viewer ─────────────────────────────────────────────────────────── */
 
 .cfx-diff {

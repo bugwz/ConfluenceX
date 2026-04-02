@@ -144,6 +144,59 @@ if (isChromeSidePanelAvailable) {
 
 const orgRuns = new Map();
 
+// ─── Streaming AI Chat via Ports ─────────────────────────────────────────────
+
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== MSG.AI_STREAM_PORT) return;
+
+  port.onMessage.addListener(async (message) => {
+    if (message.type !== MSG.AI_CHAT_REQUEST) return;
+
+    try {
+      const settingsResult = await cfxApi.storage.local.get([
+        CFX.STORAGE_KEYS.AI_PROVIDER,
+        CFX.STORAGE_KEYS.AI_ENDPOINT,
+        CFX.STORAGE_KEYS.AI_API_KEY,
+        CFX.STORAGE_KEYS.AI_MODEL,
+      ]);
+
+      const config = {
+        provider: settingsResult[CFX.STORAGE_KEYS.AI_PROVIDER] || 'openai',
+        endpoint: settingsResult[CFX.STORAGE_KEYS.AI_ENDPOINT],
+        apiKey: settingsResult[CFX.STORAGE_KEYS.AI_API_KEY],
+        model: settingsResult[CFX.STORAGE_KEYS.AI_MODEL],
+      };
+
+      if (!config.apiKey) {
+        port.postMessage({ type: MSG.AI_STREAM_ERROR, error: 'AI API key not configured. Please open Settings.' });
+        return;
+      }
+
+      const callbacks = {
+        onStatus: (status) => {
+          try { port.postMessage({ type: MSG.AI_STREAM_STATUS, status }); } catch (e) {}
+        },
+        onDelta: (delta) => {
+          try { port.postMessage({ type: MSG.AI_STREAM_DELTA, delta }); } catch (e) {}
+        },
+        onThinking: (delta) => {
+          try { port.postMessage({ type: MSG.AI_STREAM_THINKING, delta }); } catch (e) {}
+        },
+        onDone: (content, thinking) => {
+          try { port.postMessage({ type: MSG.AI_STREAM_DONE, content, thinking }); } catch (e) {}
+        },
+        onError: (error) => {
+          try { port.postMessage({ type: MSG.AI_STREAM_ERROR, error }); } catch (e) {}
+        },
+      };
+
+      await aiClient.streamAiMessage(config, message.payload.messages, callbacks);
+    } catch (err) {
+      try { port.postMessage({ type: MSG.AI_STREAM_ERROR, error: err.message }); } catch (e) {}
+    }
+  });
+});
+
 // ─── Message Router ──────────────────────────────────────────────────────────
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
