@@ -428,6 +428,14 @@
     return { doc, root: doc.documentElement, error: null };
   }
 
+  function isPathCompatibleOldXml(targetNode, oldXml) {
+    const parsedOld = parseXmlFragment(oldXml || '');
+    if (parsedOld.error || !parsedOld.root) return false;
+    const oldElements = Array.from(parsedOld.root.children);
+    if (oldElements.length !== 1) return false;
+    return oldElements[0].tagName === targetNode.tagName;
+  }
+
   function applyNodePatch(pageContent, patch) {
     if (!patch || !Array.isArray(patch.operations) || patch.operations.length === 0) {
       return { content: null, error: 'Patch operations are empty.', errorCode: 'INVALID_SCHEMA' };
@@ -456,11 +464,14 @@
       const fingerprintMatched = op.target.fingerprint
         && op.target.fingerprint.toLowerCase() === fingerprintText(currentCanonical).toLowerCase();
       if (currentCanonical !== oldCanonical && !fingerprintMatched) {
-        return {
-          content: null,
-          error: `Operation ${op.opId} failed: target node content no longer matches oldXml.`,
-          errorCode: 'FINGERPRINT_MISMATCH',
-        };
+        const compatibleByPath = isPathCompatibleOldXml(targetNode, op.oldXml);
+        if (!compatibleByPath) {
+          return {
+            content: null,
+            error: `Operation ${op.opId} failed: target node content no longer matches oldXml.`,
+            errorCode: 'FINGERPRINT_MISMATCH',
+          };
+        }
       }
 
       const replacementParsed = parseXmlFragment(op.newXml);
