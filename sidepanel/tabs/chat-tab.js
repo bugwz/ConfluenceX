@@ -230,6 +230,71 @@
       return;
     }
 
+    let errorReported = false;
+    let streamDone = false;
+    let streamMsg = null;
+    let port = null;
+
+    const disconnectPort = () => {
+      if (!port) return;
+      try { port.disconnect(); } catch (e) {}
+      port = null;
+    };
+
+    const reportError = (message) => {
+      if (errorReported) return;
+      errorReported = true;
+      if (streamMsg && streamMsg.element && streamMsg.element.isConnected) {
+        streamMsg.setStatus('error');
+        streamMsg.element.remove();
+      }
+      addMessage('assistant', `Error: ${message}`);
+    };
+
+    const handleAiResponse = (pageContent, text, aiText, streamingMessage) => {
+      const responseText = aiText || '';
+
+      // Add AI response to chat history
+      chatHistory.push({ role: 'user', content: text });
+      chatHistory.push({ role: 'assistant', content: responseText });
+
+      // Try to extract content
+      const extracted = xmlUtils.sanitizeAiOutput(responseText);
+      const conversationalPart = responseText.split('<confluencex-content>')[0].trim();
+      const displayText = conversationalPart || responseText;
+
+      if (streamingMessage) {
+        if (extracted.content) {
+          // Strip <confluencex-content> from the displayed message —
+          // only show the conversational prefix, not the raw XHTML payload.
+          streamingMessage.replaceContent(displayText);
+        }
+        streamingMessage.setStatus('done');
+        streamingMessage.finalize(Date.now());
+      } else {
+        addMessage('assistant', displayText);
+      }
+
+      if (extracted.content) {
+        showDiffAndActions(pageContent, extracted.content, text, responseText);
+      } else if (extracted.error) {
+        addSystemMessage(`Note: ${extracted.error} The AI's response was shown above but no changes were applied.`);
+      }
+    };
+
+    const runNonStreamingFallback = async (messages, pageContent, text) => {
+      const response = await cfxApi.runtime.sendMessage({
+        type: MSG.AI_CHAT_REQUEST,
+        payload: { messages },
+      });
+
+      if (!response || !response.success) {
+        throw new Error(response?.error || 'AI request failed');
+      }
+
+      handleAiResponse(pageContent, text, response.data, null);
+    };
+
     try {
       // Build AI messages
       const pageContent = pageData.body?.storage?.value || '';
@@ -239,18 +304,32 @@
       }
       const messages = globalThis.aiClient.buildMessages(chatHistory, pageContent, text, maxLen);
 
+      if (!cfxApi.runtime || typeof cfxApi.runtime.connect !== 'function') {
+        await runNonStreamingFallback(messages, pageContent, text);
+        return;
+      }
+
       // Create streaming message element
-      const streamMsg = cfxChatMessage.createStreamingMessage();
+      streamMsg = cfxChatMessage.createStreamingMessage();
       messagesEl.appendChild(streamMsg.element);
       scrollToBottom();
 
       // Open a port for streaming communication
-      const port = cfxApi.runtime.connect({ name: MSG.AI_STREAM_PORT });
+      try {
+        port = cfxApi.runtime.connect({ name: MSG.AI_STREAM_PORT });
+      } catch (err) {
+        streamMsg.element.remove();
+        streamMsg = null;
+        await runNonStreamingFallback(messages, pageContent, text);
+        return;
+      }
 
-      let streamDone = false;
-      let errorReported = false;
+      await new Promise((resolve) => {
+        const finish = () => {
+          disconnectPort();
+          resolve();
+        };
 
-      await new Promise((resolve, reject) => {
         port.onMessage.addListener((msg) => {
           switch (msg.type) {
             case MSG.AI_STREAM_STATUS:
@@ -273,43 +352,15 @@
             case MSG.AI_STREAM_DONE: {
               streamDone = true;
               const aiText = msg.content || streamMsg.getContent();
-
-              // Add AI response to chat history
-              chatHistory.push({ role: 'user', content: text });
-              chatHistory.push({ role: 'assistant', content: aiText });
-
-              // Try to extract content
-              const extracted = xmlUtils.sanitizeAiOutput(aiText);
-
-              if (extracted.content) {
-                // Strip <confluencex-content> from the displayed message —
-                // only show the conversational prefix, not the raw XHTML payload.
-                const conversationalPart = aiText.split('<confluencex-content>')[0].trim();
-                streamMsg.replaceContent(conversationalPart);
-              }
-
-              streamMsg.setStatus('done');
-              streamMsg.finalize(Date.now());
-
-              if (extracted.content) {
-                showDiffAndActions(pageContent, extracted.content, text, aiText);
-              } else if (extracted.error) {
-                addSystemMessage(`Note: ${extracted.error} The AI's response was shown above but no changes were applied.`);
-              }
-
-              port.disconnect();
-              resolve();
+              handleAiResponse(pageContent, text, aiText, streamMsg);
+              finish();
               break;
             }
 
             case MSG.AI_STREAM_ERROR:
               streamDone = true;
-              errorReported = true;
-              streamMsg.setStatus('error');
-              streamMsg.element.remove();
-              addMessage('assistant', `Error: ${msg.error}`);
-              port.disconnect();
-              resolve();
+              reportError(msg.error || 'AI streaming failed');
+              finish();
               break;
           }
         });
@@ -317,26 +368,29 @@
         port.onDisconnect.addListener(() => {
           if (!streamDone) {
             // Port closed unexpectedly before stream completed — treat as error
-            errorReported = true;
-            streamMsg.setStatus('error');
-            streamMsg.element.remove();
-            addMessage('assistant', 'Error: Connection to AI was interrupted. Please try again.');
-            resolve();
+            reportError('Connection to AI was interrupted. Please try again.');
+            finish();
           }
         });
 
         // Send the request through the port
-        port.postMessage({
-          type: MSG.AI_CHAT_REQUEST,
-          payload: { messages },
-        });
+        try {
+          port.postMessage({
+            type: MSG.AI_CHAT_REQUEST,
+            payload: { messages },
+          });
+        } catch (err) {
+          reportError(err.message || 'Failed to send streaming request');
+          finish();
+        }
       });
     } catch (err) {
       // Surface errors not already reported by stream/disconnect handlers
       if (!errorReported) {
-        addMessage('assistant', `Error: ${err.message}`);
+        reportError(err.message);
       }
     } finally {
+      disconnectPort();
       setLoading(false);
       setStatus('');
       scrollToBottom();

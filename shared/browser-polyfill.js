@@ -36,6 +36,15 @@
           });
         });
       },
+      connect: (opts) => {
+        if (browserApi?.runtime?.connect) {
+          return browserApi.runtime.connect(opts);
+        }
+        if (chromeApi?.runtime?.connect) {
+          return chromeApi.runtime.connect(opts);
+        }
+        throw new Error('Extension API unavailable: runtime.connect');
+      },
       onMessage: browserApi?.runtime?.onMessage || chromeApi?.runtime?.onMessage || null,
       getURL: (path) => {
         if (browserApi?.runtime?.getURL) return browserApi.runtime.getURL(path);
