@@ -43,6 +43,7 @@ Patch rules:
 - Preserve all ac: and ri: namespaced elements unless explicitly requested.
 - Preserve macro IDs (ac:macro-id attributes) unless explicitly requested.
 - Support Confluence macros/plugins by editing ac:structured-macro, ac:parameter, ac:plain-text-body, ac:rich-text-body, and related ri:* nodes directly when requested.
+- Also support macros/plugins expressed with any namespace prefix (not only ac/ri). Preserve unknown prefixed elements, attributes, and parameters unless explicitly asked to change them.
 
 Fallback output format (only when patch cannot be produced reliably):
 <confluencex-content>...</confluencex-content>

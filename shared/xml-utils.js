@@ -25,6 +25,10 @@
     reg: '\u00AE',
     trade: '\u2122',
   };
+  const DEFAULT_NAMESPACE_URIS = {
+    ac: 'https://confluence.atlassian.com/ac',
+    ri: 'https://confluence.atlassian.com/ri',
+  };
 
   function normalizeNamedEntitiesForXml(xml) {
     if (!xml || typeof xml !== 'string') return '';
@@ -39,9 +43,57 @@
     });
   }
 
+  function extractDeclaredNamespacePrefixes(xml) {
+    if (!xml || typeof xml !== 'string') return new Set();
+    const prefixes = new Set();
+    const regex = /xmlns:([A-Za-z_][\w.-]*)\s*=/g;
+    let match = null;
+    while ((match = regex.exec(xml)) !== null) {
+      prefixes.add(match[1]);
+    }
+    return prefixes;
+  }
+
+  function extractUsedNamespacePrefixes(xml) {
+    if (!xml || typeof xml !== 'string') return new Set();
+    const prefixes = new Set();
+
+    // Prefixed element names: <ac:structured-macro ...> or </ac:...>
+    const tagRegex = /<\/?\s*([A-Za-z_][\w.-]*):[A-Za-z_][\w.-]*/g;
+    let match = null;
+    while ((match = tagRegex.exec(xml)) !== null) {
+      prefixes.add(match[1]);
+    }
+
+    // Prefixed attributes: ac:name="...", ri:content-title="..."
+    const attrRegex = /\s([A-Za-z_][\w.-]*):[A-Za-z_][\w.-]*\s*=/g;
+    while ((match = attrRegex.exec(xml)) !== null) {
+      prefixes.add(match[1]);
+    }
+
+    return prefixes;
+  }
+
+  function buildNamespaceDeclarations(xml) {
+    const declarations = Object.entries(DEFAULT_NAMESPACE_URIS)
+      .map(([prefix, uri]) => `xmlns:${prefix}="${uri}"`);
+    const declaredPrefixes = extractDeclaredNamespacePrefixes(xml);
+    const usedPrefixes = extractUsedNamespacePrefixes(xml);
+
+    for (const prefix of usedPrefixes) {
+      if (prefix === 'xml' || prefix === 'xmlns') continue;
+      if (Object.prototype.hasOwnProperty.call(DEFAULT_NAMESPACE_URIS, prefix)) continue;
+      if (declaredPrefixes.has(prefix)) continue;
+      declarations.push(`xmlns:${prefix}="https://confluencex.local/ns/${prefix}"`);
+    }
+
+    return declarations.join(' ');
+  }
+
   function wrapStorageFragment(xml) {
     const normalized = normalizeNamedEntitiesForXml(xml);
-    return `<root xmlns:ac="https://confluence.atlassian.com/ac" xmlns:ri="https://confluence.atlassian.com/ri">${normalized}</root>`;
+    const namespaceDeclarations = buildNamespaceDeclarations(normalized);
+    return `<root ${namespaceDeclarations}>${normalized}</root>`;
   }
 
   /**
