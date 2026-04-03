@@ -258,15 +258,54 @@
       chatHistory.push({ role: 'user', content: text });
       chatHistory.push({ role: 'assistant', content: responseText });
 
-      // Try to extract content
-      const extracted = xmlUtils.sanitizeAiOutput(responseText);
-      const conversationalPart = responseText.split('<confluencex-content>')[0].trim();
-      const displayText = conversationalPart || responseText;
+      let nextContent = null;
+      let parseError = null;
+      let displayText = responseText;
+      let hasPatchPayload = false;
+
+      const tryFullContentFallback = () => {
+        const extracted = xmlUtils.sanitizeAiOutput(responseText);
+        if (extracted.content) {
+          const conversationalPart = responseText.split('<confluencex-content>')[0].trim();
+          nextContent = extracted.content;
+          displayText = conversationalPart || displayText;
+          parseError = null;
+          return true;
+        }
+        return false;
+      };
+
+      const patchResult = xmlUtils.sanitizeAiPatch(responseText);
+      if (patchResult.foundTag) {
+        hasPatchPayload = true;
+        const conversationalPart = responseText.split('<confluencex-patch>')[0].trim();
+        const patchDisplay = conversationalPart || 'Patch generated.';
+        const applied = patchResult.patch
+          ? xmlUtils.applyNodePatch(pageContent, patchResult.patch)
+          : { content: null, error: patchResult.error, errorCode: patchResult.errorCode, applied: 0 };
+
+        displayText = patchDisplay;
+        if (applied.content) {
+          nextContent = applied.content;
+          if (!conversationalPart) {
+            displayText = `Applied ${applied.applied || 0} patch operation(s).`;
+          }
+        } else {
+          if (!tryFullContentFallback()) {
+            const code = applied.errorCode || 'PATCH_ERROR';
+            parseError = `Patch apply failed (${code}): ${applied.error || 'Unknown error'}`;
+          }
+        }
+      } else {
+        // Compatibility path: old full-content response format
+        if (!tryFullContentFallback()) {
+          parseError = 'AI response did not contain usable patch or <confluencex-content> payload.';
+        }
+      }
 
       if (streamingMessage) {
-        if (extracted.content) {
-          // Strip <confluencex-content> from the displayed message —
-          // only show the conversational prefix, not the raw XHTML payload.
+        if (nextContent || hasPatchPayload) {
+          // Strip raw payload from the displayed message.
           streamingMessage.replaceContent(displayText);
         }
         streamingMessage.setStatus('done');
@@ -275,10 +314,10 @@
         addMessage('assistant', displayText);
       }
 
-      if (extracted.content) {
-        showDiffAndActions(pageContent, extracted.content, text, responseText);
-      } else if (extracted.error) {
-        addSystemMessage(`Note: ${extracted.error} The AI's response was shown above but no changes were applied.`);
+      if (nextContent) {
+        showDiffAndActions(pageContent, nextContent, text, responseText);
+      } else if (parseError) {
+        addSystemMessage(`Note: ${parseError} The AI's response was shown above but no changes were applied.`);
       }
     };
 
