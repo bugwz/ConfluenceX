@@ -6,6 +6,44 @@
 (function () {
   'use strict';
 
+  const XML_PREDEFINED_ENTITIES = new Set(['amp', 'lt', 'gt', 'apos', 'quot']);
+  const HTML_NAMED_ENTITY_MAP = {
+    nbsp: '\u00A0',
+    ensp: '\u2002',
+    emsp: '\u2003',
+    thinsp: '\u2009',
+    ldquo: '\u201C',
+    rdquo: '\u201D',
+    lsquo: '\u2018',
+    rsquo: '\u2019',
+    hellip: '\u2026',
+    ndash: '\u2013',
+    mdash: '\u2014',
+    bull: '\u2022',
+    middot: '\u00B7',
+    copy: '\u00A9',
+    reg: '\u00AE',
+    trade: '\u2122',
+  };
+
+  function normalizeNamedEntitiesForXml(xml) {
+    if (!xml || typeof xml !== 'string') return '';
+    return xml.replace(/&([A-Za-z][A-Za-z0-9]+);/g, (full, entityName) => {
+      if (XML_PREDEFINED_ENTITIES.has(entityName)) return full;
+      if (Object.prototype.hasOwnProperty.call(HTML_NAMED_ENTITY_MAP, entityName)) {
+        return HTML_NAMED_ENTITY_MAP[entityName];
+      }
+      // Unknown named entities are invalid in XML without DTD.
+      // Keep literal text to avoid parse failures.
+      return `&amp;${entityName};`;
+    });
+  }
+
+  function wrapStorageFragment(xml) {
+    const normalized = normalizeNamedEntitiesForXml(xml);
+    return `<root xmlns:ac="https://confluence.atlassian.com/ac" xmlns:ri="https://confluence.atlassian.com/ri">${normalized}</root>`;
+  }
+
   /**
    * Validate that a string is well-formed XML (Confluence storage format).
    * Returns { valid: boolean, error?: string }
@@ -16,7 +54,7 @@
     }
 
     // Wrap in a root element so fragments parse correctly
-    const wrapped = `<root xmlns:ac="https://confluence.atlassian.com/ac" xmlns:ri="https://confluence.atlassian.com/ri">${xml}</root>`;
+    const wrapped = wrapStorageFragment(xml);
 
     try {
       const parser = new DOMParser();
@@ -298,7 +336,7 @@
 
   function canonicalizeNodeXml(xml) {
     if (typeof xml !== 'string' || !xml.trim()) return '';
-    const wrapped = `<root xmlns:ac="https://confluence.atlassian.com/ac" xmlns:ri="https://confluence.atlassian.com/ri">${xml}</root>`;
+    const wrapped = wrapStorageFragment(xml);
     const parser = new DOMParser();
     const doc = parser.parseFromString(wrapped, 'application/xml');
     if (doc.querySelector('parsererror')) return '';
@@ -380,7 +418,7 @@
   }
 
   function parseXmlFragment(xml) {
-    const wrapped = `<root xmlns:ac="https://confluence.atlassian.com/ac" xmlns:ri="https://confluence.atlassian.com/ri">${xml}</root>`;
+    const wrapped = wrapStorageFragment(xml);
     const parser = new DOMParser();
     const doc = parser.parseFromString(wrapped, 'application/xml');
     const parseError = doc.querySelector('parsererror');
