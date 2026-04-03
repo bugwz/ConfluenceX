@@ -75,6 +75,16 @@
           });
         });
       },
+      reload: (tabId) => {
+        if (browserApi?.tabs?.reload) return browserApi.tabs.reload(tabId);
+        if (!chromeApi?.tabs?.reload) return unavailable('tabs.reload');
+        return new Promise((resolve, reject) => {
+          chromeApi.tabs.reload(tabId, () => {
+            if (chromeApi.runtime?.lastError) reject(chromeApi.runtime.lastError);
+            else resolve();
+          });
+        });
+      },
       onUpdated: browserApi?.tabs?.onUpdated || chromeApi?.tabs?.onUpdated || null,
     },
 

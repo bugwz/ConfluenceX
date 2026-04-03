@@ -194,6 +194,35 @@
     return fetchPageContent();
   }
 
+  async function refreshEditedPageTab() {
+    if (!cfxApi?.tabs?.query || !cfxApi?.tabs?.reload) return;
+
+    try {
+      const tabs = await cfxApi.tabs.query({ active: true, currentWindow: true });
+      if (!tabs || !tabs.length) return;
+
+      const activeTab = tabs[0];
+      let shouldReload = true;
+      if (activeTab?.id && cfxApi?.tabs?.sendMessage) {
+        try {
+          const ctxResp = await cfxApi.tabs.sendMessage(activeTab.id, { type: MSG.GET_PAGE_CONTEXT });
+          const activePageId = ctxResp?.success ? ctxResp?.data?.pageId : null;
+          if (pageContext?.pageId && activePageId && String(activePageId) !== String(pageContext.pageId)) {
+            shouldReload = false;
+          }
+        } catch (e) {
+          // If page context cannot be checked, still allow reload attempt on active tab.
+        }
+      }
+
+      if (shouldReload && activeTab?.id) {
+        await cfxApi.tabs.reload(activeTab.id);
+      }
+    } catch (e) {
+      // Refresh failure should not affect save success flow.
+    }
+  }
+
   // ─── Chat Flow ────────────────────────────────────────────────────────────────
 
   async function sendMessage() {
@@ -776,6 +805,7 @@
       addSystemMessage(`Page saved successfully (v${currentVersion + 1})`);
       editActionsEl.style.display = 'none';
       pendingEdit = null;
+      await refreshEditedPageTab();
     } catch (err) {
       addSystemMessage(`Error saving page: ${err.message}`);
       showApplyRejectButtons();
