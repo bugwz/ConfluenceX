@@ -270,11 +270,14 @@ body {
 
 .cfx-msg {
   max-width: 90%;
+  height: auto;
+  max-height: none;
   padding: 8px 12px;
   border-radius: var(--cfx-radius);
   font-size: 12px;
   line-height: 1.6;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .cfx-msg-user {
@@ -299,6 +302,15 @@ body {
   font-style: italic;
   max-width: 100%;
   text-align: center;
+}
+
+.cfx-msg-content {
+  height: auto;
+  max-height: none;
+  overflow: visible;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .cfx-org-card {
@@ -444,6 +456,9 @@ body {
 
 .cfx-msg-streaming {
   min-height: 32px;
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 /* Status indicator (connecting / thinking / generating) */
