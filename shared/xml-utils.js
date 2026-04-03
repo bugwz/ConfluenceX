@@ -432,8 +432,8 @@
     const parsedOld = parseXmlFragment(oldXml || '');
     if (parsedOld.error || !parsedOld.root) return false;
     const oldElements = Array.from(parsedOld.root.children);
-    if (oldElements.length !== 1) return false;
-    return oldElements[0].tagName === targetNode.tagName;
+    if (oldElements.length < 1) return false;
+    return oldElements.some((el) => el.tagName === targetNode.tagName);
   }
 
   function applyNodePatch(pageContent, patch) {
