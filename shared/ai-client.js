@@ -37,9 +37,12 @@ Patch rules:
 - Only use type "replace_node" in operations.
 - target.path must start with /root and identify a single XML node.
 - oldXml must be the exact original node content from current page.
-- newXml must be valid Confluence storage XML for exactly one node.
+- newXml must be valid Confluence storage XML. It can contain one or multiple sibling root nodes:
+  - first node replaces the target node;
+  - additional nodes are inserted immediately after it.
 - Preserve all ac: and ri: namespaced elements unless explicitly requested.
 - Preserve macro IDs (ac:macro-id attributes) unless explicitly requested.
+- Support Confluence macros/plugins by editing ac:structured-macro, ac:parameter, ac:plain-text-body, ac:rich-text-body, and related ri:* nodes directly when requested.
 
 Fallback output format (only when patch cannot be produced reliably):
 <confluencex-content>...</confluencex-content>

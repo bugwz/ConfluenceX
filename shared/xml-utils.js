@@ -473,16 +473,24 @@
       }
 
       const replacementElements = Array.from(replacementParsed.root.children);
-      if (replacementElements.length !== 1) {
+      if (replacementElements.length < 1) {
         return {
           content: null,
-          error: `Operation ${op.opId} must replace exactly one root element node.`,
+          error: `Operation ${op.opId} must provide at least one root element node in newXml.`,
           errorCode: 'INVALID_SCHEMA',
         };
       }
 
-      const importedNode = doc.importNode(replacementElements[0], true);
-      targetNode.parentNode.replaceChild(importedNode, targetNode);
+      const parentNode = targetNode.parentNode;
+      let anchor = targetNode.nextSibling;
+      for (let i = 0; i < replacementElements.length; i++) {
+        const importedNode = doc.importNode(replacementElements[i], true);
+        if (i === 0) {
+          parentNode.replaceChild(importedNode, targetNode);
+        } else {
+          parentNode.insertBefore(importedNode, anchor);
+        }
+      }
     }
 
     const merged = serializeRootChildren(root);
