@@ -480,12 +480,37 @@
     return { doc, root: doc.documentElement, error: null };
   }
 
-  function isPathCompatibleOldXml(targetNode, oldXml) {
+  function extractComparableTokens(text) {
+    if (!text || typeof text !== 'string') return [];
+    const lowered = text.toLowerCase();
+    const matches = lowered.match(/[a-z0-9_\-\u4e00-\u9fa5]+/g);
+    return matches || [];
+  }
+
+  function computeTokenOverlapScore(aText, bText) {
+    const aTokens = new Set(extractComparableTokens(aText));
+    const bTokens = new Set(extractComparableTokens(bText));
+    if (!aTokens.size || !bTokens.size) return { score: 0, shared: 0 };
+
+    let shared = 0;
+    for (const token of aTokens) {
+      if (bTokens.has(token)) shared++;
+    }
+    const score = shared / Math.min(aTokens.size, bTokens.size);
+    return { score, shared };
+  }
+
+  function isPathCompatibleOldXml(targetNode, oldXml, currentCanonical, oldCanonical) {
     const parsedOld = parseXmlFragment(oldXml || '');
     if (parsedOld.error || !parsedOld.root) return false;
     const oldElements = Array.from(parsedOld.root.children);
     if (oldElements.length < 1) return false;
-    return oldElements.some((el) => el.tagName === targetNode.tagName);
+    // Require target-like node shape first.
+    if (oldElements[0].tagName !== targetNode.tagName) return false;
+
+    // Then require semantic similarity so stale/wrong-section patches are rejected.
+    const overlap = computeTokenOverlapScore(currentCanonical || '', oldCanonical || '');
+    return overlap.shared >= 3 && overlap.score >= 0.5;
   }
 
   function applyNodePatch(pageContent, patch) {
@@ -516,7 +541,7 @@
       const fingerprintMatched = op.target.fingerprint
         && op.target.fingerprint.toLowerCase() === fingerprintText(currentCanonical).toLowerCase();
       if (currentCanonical !== oldCanonical && !fingerprintMatched) {
-        const compatibleByPath = isPathCompatibleOldXml(targetNode, op.oldXml);
+        const compatibleByPath = isPathCompatibleOldXml(targetNode, op.oldXml, currentCanonical, oldCanonical);
         if (!compatibleByPath) {
           return {
             content: null,
